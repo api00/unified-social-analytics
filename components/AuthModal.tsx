@@ -2,16 +2,12 @@
 
 import { useState } from "react";
 import {
-  BarChart3,
-  Loader2,
-  MessageSquareText,
-  RadioTower,
   ShieldCheck,
-  TrendingUp,
-  type LucideIcon,
+  Loader2,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
-import { socialBrandList, socialBrands } from "../data/socials";
+import { marketingSocialBrandList, socialBrands } from "../data/socials";
+import BrandLogo from "./BrandLogo";
 import SocialLogo from "./SocialLogo";
 
 type AuthModalProps = {
@@ -56,52 +52,53 @@ export default function AuthModal({ supabaseConfigured }: AuthModalProps) {
       className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-md"
       role="dialog"
     >
-      <section className="w-full max-w-[760px] rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_34px_110px_rgba(15,23,42,0.32)] md:p-8">
-        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+      <section className="w-full max-w-[640px] rounded-[24px] border border-slate-200 bg-white p-6 shadow-[0_28px_90px_rgba(15,23,42,0.26)] md:p-7">
+        <div className="flex items-start justify-between gap-5">
           <div className="flex items-center gap-3">
-            <span className="grid size-12 place-items-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/25">
-              <BarChart3 size={22} aria-hidden="true" />
-            </span>
+            <BrandLogo size={48} />
             <div>
               <strong className="block text-xl font-bold leading-tight text-slate-950">Unified</strong>
               <span className="text-sm font-semibold text-slate-500">Social Analytics</span>
             </div>
           </div>
-
-          <div className="flex flex-wrap gap-2" aria-label="Supported social networks">
-            {socialBrandList.map((platform) => (
-              <span
-                className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900"
-                key={platform}
-              >
-                <SocialLogo platform={platform} size={12} />
-                {socialBrands[platform].label}
-              </span>
-            ))}
-          </div>
         </div>
 
-        <div className="mt-8 max-w-[620px]">
+        <div className="mt-7">
           <h2
-            className="text-[2.2rem] font-bold leading-[1.05] tracking-[-0.02em] text-slate-950 md:text-[2.7rem]"
+            className="text-[2rem] font-bold leading-[1.08] tracking-[-0.02em] text-slate-950 md:text-[2.45rem]"
             id="auth-title"
           >
-            Track every channel from one clean dashboard.
+            Track every channel from one{" "}
+            <span className="relative inline-block whitespace-nowrap rounded-md bg-blue-50 px-1 text-blue-700">
+              clean dashboard
+            </span>
+            .
           </h2>
-          <p className="mt-4 text-base leading-7 text-slate-600">
-            See what is growing, which posts are winning, and ask the data what to do next.
+          <p className="mt-4 text-[0.98rem] leading-7 text-slate-600">
+            Connect channels, see what is growing, and ask your data what to do next.
           </p>
         </div>
 
-        <div className="mt-7 grid gap-3 md:grid-cols-3">
-          <FeatureLine icon={RadioTower} text="Connect channels" />
-          <FeatureLine icon={TrendingUp} text="View analytics" />
-          <FeatureLine icon={MessageSquareText} text="Ask for advice" />
+        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 border-y border-slate-200 py-4" aria-label="Supported social networks">
+          {marketingSocialBrandList.map((platform) => (
+            <span className="flex items-center gap-2 text-sm font-semibold text-slate-700" key={platform}>
+              <SocialLogo className="social-logo--bare" platform={platform} size={16} />
+              {socialBrands[platform].label}
+            </span>
+          ))}
         </div>
 
-        <div className="mt-8 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+        <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-slate-600">
+          <span>Channel sync</span>
+          <span className="text-slate-300" aria-hidden="true">/</span>
+          <span>Performance charts</span>
+          <span className="text-slate-300" aria-hidden="true">/</span>
+          <span>Growth chat</span>
+        </div>
+
+        <div className="mt-7 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
           <button
-            className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-blue-600 px-5 text-base font-bold text-white shadow-[0_16px_36px_rgba(49,91,232,0.24)] transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-blue-600/20 disabled:cursor-not-allowed disabled:opacity-60 md:min-w-[310px]"
+            className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-[0_14px_28px_rgba(49,91,232,0.2)] transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-blue-600/20 disabled:cursor-not-allowed disabled:opacity-60 md:min-w-[280px]"
             disabled={isLoading}
             onClick={continueWithGoogle}
             type="button"
@@ -110,7 +107,7 @@ export default function AuthModal({ supabaseConfigured }: AuthModalProps) {
             Continue with Google
           </button>
 
-          <p className="flex items-start gap-2 text-xs leading-5 text-slate-500 md:max-w-[270px]">
+          <p className="flex items-start gap-2 text-xs leading-5 text-slate-500 md:max-w-[250px]">
             <ShieldCheck className="mt-0.5 shrink-0 text-slate-400" size={15} aria-hidden="true" />
             Google signs you in. YouTube analytics is connected separately with read-only access.
           </p>
@@ -122,17 +119,6 @@ export default function AuthModal({ supabaseConfigured }: AuthModalProps) {
           </p>
         ) : null}
       </section>
-    </div>
-  );
-}
-
-function FeatureLine({ icon: Icon, text }: { icon: LucideIcon; text: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">
-      <span className="grid size-9 place-items-center rounded-xl bg-white text-blue-600 shadow-sm">
-        <Icon size={16} aria-hidden="true" />
-      </span>
-      <span>{text}</span>
     </div>
   );
 }

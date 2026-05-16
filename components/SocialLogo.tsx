@@ -1,10 +1,12 @@
-import { siInstagram, siTiktok, siYoutube } from "simple-icons";
+import { siFacebook, siInstagram, siTiktok, siX, siYoutube } from "simple-icons";
 import type { CSSProperties } from "react";
-import { getPlatformId, isSocialPlatformId, socialBrandList, socialBrands } from "../data/socials";
+import { getPlatformId, isSocialBrandId, socialBrandList, socialBrands } from "../data/socials";
 
 const socialIcons = {
+  facebook: siFacebook,
   instagram: siInstagram,
   tiktok: siTiktok,
+  x: siX,
   youtube: siYoutube,
 };
 
@@ -18,7 +20,7 @@ export default function SocialLogo({
   size?: number;
 }) {
   const platformId = getPlatformId(platform);
-  if (!isSocialPlatformId(platformId)) return null;
+  if (!isSocialBrandId(platformId)) return null;
 
   const icon = socialIcons[platformId];
   const brand = socialBrands[platformId];

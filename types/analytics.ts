@@ -1,4 +1,5 @@
 export type SocialPlatformId = "youtube" | "tiktok" | "instagram";
+export type SocialBrandId = SocialPlatformId | "facebook" | "x";
 export type PlatformId = "all" | SocialPlatformId;
 export type DataSource = "demo" | "live";
 

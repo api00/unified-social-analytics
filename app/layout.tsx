@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   title: "Unified Social Analytics | Creator analytics and growth advisor",
   description:
     "Connect social channels, track creator analytics, and chat with a data-aware growth advisor.",
+  icons: {
+    icon: "/brand/logo-mark.svg",
+  },
 };
 
 export const viewport: Viewport = {

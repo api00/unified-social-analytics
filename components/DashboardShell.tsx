@@ -8,7 +8,6 @@ import {
   ArrowUpRight,
   Bell,
   CalendarDays,
-  ChartNoAxesCombined,
   Download,
   Eye,
   FileChartColumn,
@@ -28,6 +27,7 @@ import {
 } from "../data/analytics";
 import type { NetworkMetric, OverviewData, PlatformId, PlatformOption, TopContentItem } from "../types/analytics";
 import AuthModal from "./AuthModal";
+import BrandLogo from "./BrandLogo";
 import ChannelManager from "./ChannelManager";
 import GrowthAdvisor from "./GrowthAdvisor";
 import GrowthCharts from "./GrowthCharts";
@@ -125,9 +125,7 @@ export default function DashboardShell({ initialUser, supabaseConfigured }: Dash
       <aside className="sidebar" aria-label="Primary navigation">
         <div className="sidebar-header">
           <div className="brand-lockup" aria-label="Unified Social Analytics">
-            <span className="brand-mark" aria-hidden="true">
-              <ChartNoAxesCombined size={20} />
-            </span>
+            <BrandLogo className="brand-mark" size={42} />
             <span className="brand-copy">
               <strong>Unified</strong>
               <small>Social Analytics</small>

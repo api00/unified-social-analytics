@@ -170,6 +170,35 @@
   color: white;
 }
 
+.social-logo--facebook {
+  background: #eef5ff;
+  color: #1877f2;
+}
+
+.social-logo--x {
+  background: #111111;
+  color: white;
+}
+
+.social-logo--bare {
+  width: var(--logo-size, 16px);
+  height: var(--logo-size, 16px);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.social-logo--bare.social-logo--tiktok,
+.social-logo--bare.social-logo--x {
+  color: #111111;
+}
+
+.social-logo--bare.social-logo--instagram {
+  background: transparent;
+  color: #ff0069;
+}
+
 .social-logo-group {
   padding-left: 0.35rem;
 }
