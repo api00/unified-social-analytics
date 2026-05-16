@@ -1,0 +1,33 @@
+{
+  "name": "unified-socal-analytics",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.105.4",
+    "@tailwindcss/postcss": "^4.3.0",
+    "framer-motion": "12.38.0",
+    "googleapis": "^171.4.0",
+    "lucide-react": "1.16.0",
+    "next": "16.2.6",
+    "openai": "^6.38.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "recharts": "3.8.1",
+    "simple-icons": "^16.19.0",
+    "tailwindcss": "^4.3.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0",
+    "@types/react": "^19.2.14",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
+    "typescript": "^6.0.3"
+  }
+}
