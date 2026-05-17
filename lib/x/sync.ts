@@ -34,10 +34,17 @@ type XUser = {
   };
 };
 
+type XMedia = {
+  media_key: string;
+  type: "photo" | "video" | "animated_gif";
+  duration_ms?: number;
+};
+
 type XTweet = {
   id: string;
   text: string;
   created_at: string;
+  attachments?: { media_keys?: string[] };
   public_metrics?: {
     retweet_count: number;
     reply_count: number;
@@ -47,6 +54,21 @@ type XTweet = {
     impression_count?: number;
   };
 };
+
+type XTweetsResponse = {
+  data?: XTweet[];
+  includes?: { media?: XMedia[] };
+};
+
+function classifyTweet(tweet: XTweet, mediaByKey: Map<string, XMedia>) {
+  const keys = tweet.attachments?.media_keys ?? [];
+  if (!keys.length) return "Text";
+  const types = keys.map((k) => mediaByKey.get(k)?.type).filter(Boolean) as XMedia["type"][];
+  if (types.includes("video")) return "Video";
+  if (types.includes("animated_gif")) return "GIF";
+  if (types.includes("photo")) return "Image";
+  return "Text";
+}
 
 function excluded(column: string) {
   return sql.raw(`excluded.${column}`);
@@ -72,10 +94,15 @@ export async function fetchXMe(accessToken: string): Promise<XUser> {
   return json.data;
 }
 
-async function fetchUserTweets(accessToken: string, userId: string): Promise<XTweet[]> {
+async function fetchUserTweets(
+  accessToken: string,
+  userId: string
+): Promise<{ tweets: XTweet[]; mediaByKey: Map<string, XMedia> }> {
   const url = new URL(`https://api.twitter.com/2/users/${userId}/tweets`);
   url.searchParams.set("max_results", "100");
-  url.searchParams.set("tweet.fields", "public_metrics,created_at");
+  url.searchParams.set("tweet.fields", "public_metrics,created_at,attachments");
+  url.searchParams.set("expansions", "attachments.media_keys");
+  url.searchParams.set("media.fields", "type,duration_ms");
   url.searchParams.set("exclude", "retweets,replies");
 
   const response = await fetch(url, {
@@ -87,8 +114,13 @@ async function fetchUserTweets(accessToken: string, userId: string): Promise<XTw
     throw new Error(`X /users/:id/tweets failed: ${response.status} ${text}`);
   }
 
-  const json = (await response.json()) as { data?: XTweet[] };
-  return json.data ?? [];
+  const json = (await response.json()) as XTweetsResponse;
+  const tweets = json.data ?? [];
+  const mediaByKey = new Map<string, XMedia>();
+  for (const media of json.includes?.media ?? []) {
+    mediaByKey.set(media.media_key, media);
+  }
+  return { tweets, mediaByKey };
 }
 
 async function refreshIfNeeded(account: XConnectedAccount): Promise<string> {
@@ -167,7 +199,7 @@ export async function syncXAccount(account: XConnectedAccount) {
 
     if (!xAccountRow) throw new Error("Could not upsert X account.");
 
-    const tweets = await fetchUserTweets(accessToken, me.id);
+    const { tweets, mediaByKey } = await fetchUserTweets(accessToken, me.id);
 
     if (tweets.length) {
       await db
@@ -187,7 +219,7 @@ export async function syncXAccount(account: XConnectedAccount) {
               platform: "x" as const,
               externalId: tweet.id,
               title: tweet.text.slice(0, 280),
-              contentType: "Tweet" as const,
+              contentType: classifyTweet(tweet, mediaByKey),
               url: `https://twitter.com/${me.username}/status/${tweet.id}`,
               thumbnailUrl: null,
               publishedAt: new Date(tweet.created_at),
