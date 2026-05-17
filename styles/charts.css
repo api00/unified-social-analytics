@@ -31,12 +31,15 @@
 
 .ranked-list {
   display: grid;
+  grid-auto-rows: min-content;
+  align-content: start;
   gap: var(--space-3);
   min-height: 0;
   padding: var(--space-3);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
   background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  overflow-y: auto;
 }
 
 .ranked-row {
