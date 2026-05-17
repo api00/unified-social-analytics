@@ -21,9 +21,10 @@ import SocialLogo from "./SocialLogo";
 type ChannelManagerProps = {
   isAuthenticated: boolean;
   onChannelsChange?: (count: number) => void;
+  onPlatformsChange?: (platforms: SocialPlatformId[]) => void;
 };
 
-export default function ChannelManager({ isAuthenticated, onChannelsChange }: ChannelManagerProps) {
+export default function ChannelManager({ isAuthenticated, onChannelsChange, onPlatformsChange }: ChannelManagerProps) {
   const [isAddingChannel, setIsAddingChannel] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<SocialPlatformId>("youtube");
   const [channels, setChannels] = useState<ChannelAccount[]>([]);
@@ -40,10 +41,12 @@ export default function ChannelManager({ isAuthenticated, onChannelsChange }: Ch
       const list = payload.channels ?? [];
       setChannels(list);
       onChannelsChange?.(list.length);
+      const uniquePlatforms = Array.from(new Set(list.map((c) => c.platform))) as SocialPlatformId[];
+      onPlatformsChange?.(uniquePlatforms);
     }
 
     void loadChannels();
-  }, [isAuthenticated, onChannelsChange]);
+  }, [isAuthenticated, onChannelsChange, onPlatformsChange]);
 
   async function connectSelectedPlatform() {
     setStatusMessage("");

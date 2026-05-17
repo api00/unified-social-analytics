@@ -22,7 +22,8 @@ import {
   UsersRound,
 } from "lucide-react";
 import { buildEmptyOverview } from "../data/analytics";
-import type { NetworkMetric, OverviewData, PlatformId, PlatformOption, TimeRange, TopContentItem } from "../types/analytics";
+import type { NetworkMetric, OverviewData, PlatformId, PlatformOption, SocialPlatformId, TimeRange, TopContentItem } from "../types/analytics";
+import { socialBrands } from "../data/socials";
 import AuthModal from "./AuthModal";
 import BrandLogo from "./BrandLogo";
 import ChannelManager from "./ChannelManager";
@@ -57,6 +58,7 @@ type DashboardShellProps = {
   initialUser: InitialUser | null;
   authConfigured: boolean;
   initialChannelCount: number;
+  initialPlatforms: SocialPlatformId[];
 };
 
 const sectionCopy: Record<AppSection, { title: string; description: string }> = {
@@ -94,13 +96,22 @@ const rangeOptions: { id: TimeRange; label: string }[] = [
   { id: "all", label: "All time" },
 ];
 
-export default function DashboardShell({ initialUser, authConfigured, initialChannelCount }: DashboardShellProps) {
+export default function DashboardShell({
+  initialUser,
+  authConfigured,
+  initialChannelCount,
+  initialPlatforms,
+}: DashboardShellProps) {
   const router = useRouter();
   const [activePlatform, setActivePlatform] = useState<PlatformId>("all");
   const [activeSection, setActiveSection] = useState<AppSection>("overview");
   const [overviewData, setOverviewData] = useState<OverviewData>(buildEmptyOverview);
   const [channelCount, setChannelCount] = useState<number>(initialChannelCount);
+  const [connectedPlatforms, setConnectedPlatforms] = useState<SocialPlatformId[]>(initialPlatforms);
   const [activeRange, setActiveRange] = useState<TimeRange>("7d");
+
+  const updateChannelCount = (next: number) => setChannelCount(next);
+  const updateConnectedPlatforms = (platforms: SocialPlatformId[]) => setConnectedPlatforms(platforms);
 
   const currentCopy = sectionCopy[activeSection] ?? sectionCopy.overview;
   const activeMetrics = overviewData.networkMetrics[activePlatform] ?? overviewData.networkMetrics.all;
@@ -171,12 +182,14 @@ export default function DashboardShell({ initialUser, authConfigured, initialCha
             <span id="sidebar-networks-title">Connected networks</span>
             <small>{hasChannels ? `${channelCount} synced` : "Nothing connected"}</small>
           </div>
-          {hasChannels ? (
+          {connectedPlatforms.length ? (
             <div className="network-stack">
-              <span className="network-pill">
-                <SocialLogo platform="youtube" size={12} />
-                YouTube
-              </span>
+              {connectedPlatforms.map((platform) => (
+                <span className="network-pill" key={platform}>
+                  <SocialLogo platform={platform} size={12} />
+                  {socialBrands[platform]?.label ?? platform}
+                </span>
+              ))}
             </div>
           ) : (
             <button className="sidebar-connect-cta" type="button" onClick={() => setActiveSection("channels")}>
@@ -237,7 +250,11 @@ export default function DashboardShell({ initialUser, authConfigured, initialCha
         </header>
 
         {activeSection === "channels" ? (
-          <ChannelManager isAuthenticated={Boolean(initialUser)} onChannelsChange={setChannelCount} />
+          <ChannelManager
+            isAuthenticated={Boolean(initialUser)}
+            onChannelsChange={updateChannelCount}
+            onPlatformsChange={updateConnectedPlatforms}
+          />
         ) : activeSection === "chat" ? (
           <GrowthAdvisor isAuthenticated={Boolean(initialUser)} />
         ) : activeSection === "overview" ? (

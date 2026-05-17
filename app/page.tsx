@@ -1,17 +1,18 @@
 import DashboardShell from "../components/DashboardShell";
-import { countUserChannels } from "../lib/channels";
+import { getUserChannelSummary } from "../lib/channels";
 import { getCurrentUser } from "../lib/current-user";
 import { hasAuthEnv } from "../lib/env";
 
 export default async function Home() {
   const user = await getCurrentUser();
-  const initialChannelCount = user ? await countUserChannels(user.id) : 0;
+  const summary = user ? await getUserChannelSummary(user.id) : { count: 0, platforms: [] };
 
   return (
     <DashboardShell
       initialUser={user}
       authConfigured={hasAuthEnv()}
-      initialChannelCount={initialChannelCount}
+      initialChannelCount={summary.count}
+      initialPlatforms={summary.platforms}
     />
   );
 }
