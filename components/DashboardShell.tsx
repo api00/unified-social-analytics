@@ -22,7 +22,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { buildEmptyOverview } from "../data/analytics";
-import type { NetworkMetric, OverviewData, PlatformId, PlatformOption, SocialPlatformId, TimeRange, TopContentItem } from "../types/analytics";
+import type { ContentFormatDatum, NetworkMetric, OverviewData, PlatformId, PlatformOption, SocialPlatformId, TimeRange, TopContentItem } from "../types/analytics";
 import { socialBrands } from "../data/socials";
 import AuthModal from "./AuthModal";
 import BrandLogo from "./BrandLogo";
@@ -119,6 +119,11 @@ export default function DashboardShell({
     if (activePlatform === "all") return overviewData.topContent;
     return overviewData.topContent.filter((item) => item.platform.toLowerCase() === activePlatform);
   }, [activePlatform, overviewData.topContent]);
+
+  const filteredFormats = useMemo<ContentFormatDatum[]>(() => {
+    if (activePlatform === "all") return overviewData.contentByFormat;
+    return overviewData.contentByFormat.filter((item) => (item.platform ?? "").toLowerCase() === activePlatform);
+  }, [activePlatform, overviewData.contentByFormat]);
 
   useEffect(() => {
     if (!initialUser) return;
@@ -265,6 +270,7 @@ export default function DashboardShell({
               activeMetrics={activeMetrics}
               activePlatform={activePlatform}
               filteredContent={filteredContent}
+              filteredFormats={filteredFormats}
               overviewData={overviewData}
               setActivePlatform={setActivePlatform}
             />
@@ -320,12 +326,14 @@ function OverviewDashboard({
   activeMetrics,
   activePlatform,
   filteredContent,
+  filteredFormats,
   overviewData,
   setActivePlatform,
 }: {
   activeMetrics: NetworkMetric;
   activePlatform: PlatformId;
   filteredContent: TopContentItem[];
+  filteredFormats: ContentFormatDatum[];
   overviewData: OverviewData;
   setActivePlatform: (platform: PlatformId) => void;
 }) {
@@ -365,7 +373,7 @@ function OverviewDashboard({
       <section className="analytics-grid" aria-label="Overview analytics">
         <GrowthCharts
           activePlatform={activePlatform}
-          contentByFormatData={overviewData.contentByFormat}
+          contentByFormatData={filteredFormats}
           source={overviewData.source}
           weeklySeriesData={overviewData.weeklySeries}
         />

@@ -40,6 +40,7 @@ export type ContentFormatDatum = {
   name: string;
   views: number;
   saves?: number;
+  platform?: string;
 };
 
 export type TopContentItem = {

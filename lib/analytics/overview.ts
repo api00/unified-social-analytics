@@ -189,8 +189,10 @@ export async function getOverviewForUser(userId: string, range: TimeRange = "7d"
     url: item.url,
   }));
 
-  const formatViews = contentRows.reduce<Record<string, number>>((acc, item) => {
-    acc[item.contentType] = (acc[item.contentType] ?? 0) + Number(item.views ?? 0);
+  const formatViews = contentRows.reduce<Record<string, { views: number; platform: string }>>((acc, item) => {
+    const key = `${item.platform}::${item.contentType}`;
+    if (!acc[key]) acc[key] = { views: 0, platform: item.platform };
+    acc[key].views += Number(item.views ?? 0);
     return acc;
   }, {});
 
@@ -209,7 +211,11 @@ export async function getOverviewForUser(userId: string, range: TimeRange = "7d"
     platformOptions,
     weeklySeries,
     audienceMix,
-    contentByFormat: Object.entries(formatViews).map(([name, views]) => ({ name, views })),
+    contentByFormat: Object.entries(formatViews).map(([key, value]) => ({
+      name: key.split("::")[1] ?? key,
+      views: value.views,
+      platform: value.platform,
+    })),
     topContent,
     networkMetrics: {
       all: {
