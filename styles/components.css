@@ -302,3 +302,117 @@
 .panel-heading h2 {
   font-size: var(--text-h3);
 }
+
+.overview-empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-5);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.overview-empty .overview-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  background: rgba(49, 91, 232, 0.1);
+  color: var(--color-accent);
+  margin-bottom: var(--space-2);
+}
+
+.overview-empty h2 {
+  font-size: var(--text-h2);
+  max-width: 26rem;
+}
+
+.overview-empty span {
+  color: var(--color-muted);
+  max-width: 32rem;
+}
+
+.overview-empty .primary-button {
+  margin-top: var(--space-3);
+}
+
+.channel-empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  color: var(--color-muted);
+}
+
+.channel-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  background: rgba(49, 91, 232, 0.08);
+  color: var(--color-accent);
+  margin-bottom: var(--space-2);
+}
+
+.channel-empty strong {
+  color: var(--color-text);
+  font-size: var(--text-h3);
+}
+
+.channel-empty .primary-button {
+  margin-top: var(--space-3);
+}
+
+.chat-empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  color: var(--color-muted);
+  margin: auto 0;
+}
+
+.chat-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  background: rgba(49, 91, 232, 0.08);
+  color: var(--color-accent);
+}
+
+.chat-empty strong {
+  color: var(--color-text);
+  font-size: var(--text-h3);
+}
+
+.chat-history-empty {
+  padding: var(--space-3);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: var(--text-micro);
+}
+
+.sidebar-connect-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 0.55rem;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: var(--text-micro);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+
+.sidebar-connect-cta:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}

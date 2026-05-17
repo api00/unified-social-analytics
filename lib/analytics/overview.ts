@@ -1,5 +1,5 @@
 import { and, desc, eq, gte } from "drizzle-orm";
-import { demoOverview, formatCompactNumber, platformOptions } from "../../data/analytics";
+import { buildEmptyOverview, formatCompactNumber, platformOptions } from "../../data/analytics";
 import { db } from "../../db";
 import { analyticsDaily, contentItems, youtubeChannels } from "../../db/schema";
 import type { OverviewData, TopContentItem, WeeklySeriesPoint } from "../../types/analytics";
@@ -30,7 +30,7 @@ export async function getOverviewForUser(userId: string): Promise<OverviewData> 
     .from(youtubeChannels)
     .where(eq(youtubeChannels.userId, userId));
 
-  if (!channels.length) return demoOverview;
+  if (!channels.length) return buildEmptyOverview();
 
   const startDate = dateDaysAgo(6);
   const dailyRows = await db
@@ -72,28 +72,24 @@ export async function getOverviewForUser(userId: string): Promise<OverviewData> 
   );
   const engagementRate = totalViews ? `${((totalEngagement / totalViews) * 100).toFixed(1)}%` : "0%";
 
-  const weeklySeries: WeeklySeriesPoint[] = rows.length
-    ? rows.map((row) => ({
-        day: dayLabel(row.date),
-        youtube: Number(row.views ?? 0),
-        tiktok: 0,
-        instagram: 0,
-        total: Number(row.views ?? 0),
-      }))
-    : demoOverview.weeklySeries.map((row) => ({ ...row, tiktok: 0, instagram: 0, total: row.youtube }));
+  const weeklySeries: WeeklySeriesPoint[] = rows.map((row) => ({
+    day: dayLabel(row.date),
+    youtube: Number(row.views ?? 0),
+    tiktok: 0,
+    instagram: 0,
+    total: Number(row.views ?? 0),
+  }));
 
-  const topContent: TopContentItem[] = contentRows.length
-    ? contentRows.map((item) => ({
-        id: item.id,
-        title: item.title,
-        platform: "youtube",
-        type: item.contentType,
-        views: Number(item.views ?? 0),
-        audience: undefined,
-        engagement: item.views ? `${((Number(item.engagementCount ?? 0) / Number(item.views)) * 100).toFixed(1)}%` : "0%",
-        url: item.url,
-      }))
-    : demoOverview.topContent.filter((item) => item.platform.toLowerCase() === "youtube");
+  const topContent: TopContentItem[] = contentRows.map((item) => ({
+    id: item.id,
+    title: item.title,
+    platform: "youtube",
+    type: item.contentType,
+    views: Number(item.views ?? 0),
+    audience: undefined,
+    engagement: item.views ? `${((Number(item.engagementCount ?? 0) / Number(item.views)) * 100).toFixed(1)}%` : "0%",
+    url: item.url,
+  }));
 
   const formatViews = topContent.reduce<Record<string, number>>((acc, item) => {
     acc[item.type] = (acc[item.type] ?? 0) + item.views;

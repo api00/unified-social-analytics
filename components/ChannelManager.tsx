@@ -8,20 +8,25 @@ import {
   ExternalLink,
   MoreHorizontal,
   Plus,
+  RadioTower,
   RefreshCw,
   ShieldCheck,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { channelAccounts, channelStats } from "../data/channels";
 import { getSocialBrand, socialBrandList, socialBrands } from "../data/socials";
 import type { ChannelAccount, SocialPlatformId } from "../types/analytics";
 import SocialLogo from "./SocialLogo";
 
-export default function ChannelManager({ isAuthenticated }: { isAuthenticated: boolean }) {
+type ChannelManagerProps = {
+  isAuthenticated: boolean;
+  onChannelsChange?: (count: number) => void;
+};
+
+export default function ChannelManager({ isAuthenticated, onChannelsChange }: ChannelManagerProps) {
   const [isAddingChannel, setIsAddingChannel] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<SocialPlatformId>("youtube");
-  const [channels, setChannels] = useState<ChannelAccount[]>(channelAccounts);
+  const [channels, setChannels] = useState<ChannelAccount[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -32,11 +37,13 @@ export default function ChannelManager({ isAuthenticated }: { isAuthenticated: b
       const response = await fetch("/api/channels");
       if (!response.ok) return;
       const payload = (await response.json()) as { channels?: ChannelAccount[] };
-      if (payload.channels?.length) setChannels(payload.channels);
+      const list = payload.channels ?? [];
+      setChannels(list);
+      onChannelsChange?.(list.length);
     }
 
     void loadChannels();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, onChannelsChange]);
 
   async function connectSelectedPlatform() {
     setStatusMessage("");
@@ -71,6 +78,8 @@ export default function ChannelManager({ isAuthenticated }: { isAuthenticated: b
     setStatusMessage(`Synced ${payload.synced ?? 0} YouTube channel${payload.synced === 1 ? "" : "s"}.`);
   }
 
+  const stats = buildChannelStats(channels);
+
   return (
     <>
       <motion.div
@@ -94,7 +103,7 @@ export default function ChannelManager({ isAuthenticated }: { isAuthenticated: b
         {statusMessage ? <p className="sync-note" role="status">{statusMessage}</p> : null}
 
         <section className="channel-stat-grid" aria-label="Channel setup summary">
-          {channelStats.map((stat) => (
+          {stats.map((stat) => (
             <article className="channel-stat-card" key={stat.label}>
               <span>{stat.label}</span>
               <strong>{stat.value}</strong>
@@ -110,40 +119,54 @@ export default function ChannelManager({ isAuthenticated }: { isAuthenticated: b
                 <p className="section-kicker">Connected accounts</p>
                 <h2>Active channels</h2>
               </div>
-              <button className="secondary-button compact" type="button" onClick={syncNow} disabled={isSyncing}>
+              <button className="secondary-button compact" type="button" onClick={syncNow} disabled={isSyncing || channels.length === 0}>
                 <RefreshCw size={15} className={isSyncing ? "animate-spin" : ""} />
                 {isSyncing ? "Syncing" : "Sync all"}
               </button>
             </div>
 
-            <div className="channel-list" role="list">
-              {channels.map((channel) => (
-                <article className="channel-row" key={channel.id} role="listitem">
-                  <div className="channel-identity">
-                    <SocialLogo platform={channel.platform} size={14} />
-                    <div>
-                      <strong>{channel.name}</strong>
-                      <small>
-                        {getSocialBrand(channel.platform)?.label ?? "YouTube"} / {channel.handle}
-                      </small>
+            {channels.length === 0 ? (
+              <div className="channel-empty">
+                <span className="channel-empty-icon" aria-hidden="true">
+                  <RadioTower size={22} />
+                </span>
+                <strong>No channels connected yet</strong>
+                <small>Add YouTube to start syncing views, audience, and top posts.</small>
+                <button className="primary-button" type="button" onClick={() => setIsAddingChannel(true)}>
+                  <Plus size={16} />
+                  Add channel
+                </button>
+              </div>
+            ) : (
+              <div className="channel-list" role="list">
+                {channels.map((channel) => (
+                  <article className="channel-row" key={channel.id} role="listitem">
+                    <div className="channel-identity">
+                      <SocialLogo platform={channel.platform} size={14} />
+                      <div>
+                        <strong>{channel.name}</strong>
+                        <small>
+                          {getSocialBrand(channel.platform)?.label ?? "YouTube"} / {channel.handle}
+                        </small>
+                      </div>
                     </div>
-                  </div>
-                  <span className={channel.status === "Synced" ? "sync-badge is-healthy" : "sync-badge is-warning"}>
-                    {channel.status === "Synced" ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
-                    {channel.status}
-                  </span>
-                  <span className="channel-meta">
-                    <Clock3 size={13} />
-                    {channel.cadence}
-                  </span>
-                  <strong className="channel-number">{channel.posts}</strong>
-                  <strong className="channel-number">{channel.reach}</strong>
-                  <button className="icon-button channel-menu-button" aria-label={`More options for ${channel.name}`} type="button">
-                    <MoreHorizontal size={16} />
-                  </button>
-                </article>
-              ))}
-            </div>
+                    <span className={channel.status === "Synced" ? "sync-badge is-healthy" : "sync-badge is-warning"}>
+                      {channel.status === "Synced" ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
+                      {channel.status}
+                    </span>
+                    <span className="channel-meta">
+                      <Clock3 size={13} />
+                      {channel.cadence}
+                    </span>
+                    <strong className="channel-number">{channel.posts}</strong>
+                    <strong className="channel-number">{channel.reach}</strong>
+                    <button className="icon-button channel-menu-button" aria-label={`More options for ${channel.name}`} type="button">
+                      <MoreHorizontal size={16} />
+                    </button>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </motion.div>
@@ -215,4 +238,28 @@ export default function ChannelManager({ isAuthenticated }: { isAuthenticated: b
       </AnimatePresence>
     </>
   );
+}
+
+function buildChannelStats(channels: ChannelAccount[]) {
+  const total = channels.length;
+  const healthy = channels.filter((channel) => channel.status === "Synced").length;
+  const needsReview = total - healthy;
+
+  return [
+    {
+      label: "Connected channels",
+      value: String(total),
+      detail: total ? `${total} active` : "Nothing connected yet",
+    },
+    {
+      label: "Healthy syncs",
+      value: String(healthy),
+      detail: needsReview ? `${needsReview} need${needsReview === 1 ? "s" : ""} review` : "All healthy",
+    },
+    {
+      label: "Pending sync",
+      value: String(total - healthy),
+      detail: total ? "Will run on next cron" : "—",
+    },
+  ];
 }

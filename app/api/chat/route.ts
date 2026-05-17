@@ -1,13 +1,11 @@
 import OpenAI from "openai";
 import { NextResponse, type NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
-import { chatThreads } from "../../../data/chat";
 import { hasOpenAIEnv } from "../../../lib/env";
 import { getOverviewForUser, summarizeOverviewForPrompt } from "../../../lib/analytics/overview";
 import { db } from "../../../db";
 import { chatMessages, chatThreads as chatThreadTable } from "../../../db/schema";
 import { getCurrentUser } from "../../../lib/current-user";
-import type { ChatMessage } from "../../../types/analytics";
 
 type ChatRequest = {
   threadId?: string;
@@ -16,29 +14,21 @@ type ChatRequest = {
 
 function fallbackAdvice(question: string) {
   if (/youtube/i.test(question)) {
-    return "Use the strongest YouTube teardown as the source asset: cut it into 3 short clips, keep each hook specific, and publish the clearest lesson as a carousel.";
+    return "Cut your strongest YouTube video into 3 short clips, lead each with a specific hook, and publish the clearest lesson as a carousel.";
   }
-
-  return "Focus on the format already proving demand: short analytics breakdowns. Keep the first 2 seconds concrete, reuse the winning teardown topic, and add one save-driven Instagram carousel.";
+  return "Lean into the format already proving demand. Keep the first 2 seconds concrete and reuse the structure of your top-performing post.";
 }
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Sign in to chat with the advisor." }, { status: 401 });
+
   const body = (await request.json().catch(() => ({}))) as ChatRequest;
   const message = body.message?.trim();
-
   if (!message) return NextResponse.json({ error: "Message is required." }, { status: 400 });
-  if (!user) {
-    const messages: ChatMessage[] = [
-      ...chatThreads[0].messages,
-      { id: crypto.randomUUID(), role: "user", text: message },
-      { id: crypto.randomUUID(), role: "agent", text: fallbackAdvice(message) },
-    ];
-    return NextResponse.json({ threadId: "demo", messages, source: "demo" });
-  }
 
   let threadId = body.threadId;
-  if (!threadId || threadId === "new" || threadId === "demo") {
+  if (!threadId || threadId === "new") {
     const [thread] = await db
       .insert(chatThreadTable)
       .values({
@@ -113,6 +103,5 @@ export async function POST(request: NextRequest) {
       text: item.content,
       createdAt: item.createdAt.toISOString(),
     })),
-    source: hasOpenAIEnv() ? "live" : "fallback",
   });
 }

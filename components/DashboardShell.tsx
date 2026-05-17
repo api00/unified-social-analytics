@@ -15,16 +15,13 @@ import {
   ListVideo,
   LogOut,
   MessageSquareText,
+  Plus,
   RadioTower,
   Search,
   Sparkles,
   UsersRound,
 } from "lucide-react";
-import {
-  demoOverview,
-  networkMetrics,
-  topContent,
-} from "../data/analytics";
+import { buildEmptyOverview } from "../data/analytics";
 import type { NetworkMetric, OverviewData, PlatformId, PlatformOption, TopContentItem } from "../types/analytics";
 import AuthModal from "./AuthModal";
 import BrandLogo from "./BrandLogo";
@@ -35,7 +32,7 @@ import MetricCard from "./MetricCard";
 import PlatformBreakdown from "./PlatformBreakdown";
 import SocialLogo, { SocialLogoGroup } from "./SocialLogo";
 import TopContentChart from "./TopContentChart";
-import { getPlatformColor, socialBrandList, socialBrands } from "../data/socials";
+import { getPlatformColor } from "../data/socials";
 import { authClient } from "../lib/auth-client";
 
 const navItems = [
@@ -59,6 +56,7 @@ type InitialUser = {
 type DashboardShellProps = {
   initialUser: InitialUser | null;
   authConfigured: boolean;
+  initialChannelCount: number;
 };
 
 const sectionCopy: Record<AppSection, { title: string; description: string }> = {
@@ -88,17 +86,18 @@ const sectionCopy: Record<AppSection, { title: string; description: string }> = 
   },
 };
 
-export default function DashboardShell({ initialUser, authConfigured }: DashboardShellProps) {
+export default function DashboardShell({ initialUser, authConfigured, initialChannelCount }: DashboardShellProps) {
   const router = useRouter();
   const [activePlatform, setActivePlatform] = useState<PlatformId>("all");
   const [activeSection, setActiveSection] = useState<AppSection>("overview");
-  const [overviewData, setOverviewData] = useState<OverviewData>(demoOverview);
+  const [overviewData, setOverviewData] = useState<OverviewData>(buildEmptyOverview);
+  const [channelCount, setChannelCount] = useState<number>(initialChannelCount);
 
   const currentCopy = sectionCopy[activeSection] ?? sectionCopy.overview;
-  const activeMetrics = overviewData.networkMetrics[activePlatform] ?? networkMetrics[activePlatform];
+  const activeMetrics = overviewData.networkMetrics[activePlatform] ?? overviewData.networkMetrics.all;
   const filteredContent = useMemo<TopContentItem[]>(() => {
-    if (activePlatform === "all") return overviewData.topContent ?? topContent;
-    return (overviewData.topContent ?? topContent).filter((item) => item.platform.toLowerCase() === activePlatform);
+    if (activePlatform === "all") return overviewData.topContent;
+    return overviewData.topContent.filter((item) => item.platform.toLowerCase() === activePlatform);
   }, [activePlatform, overviewData.topContent]);
 
   useEffect(() => {
@@ -109,6 +108,7 @@ export default function DashboardShell({ initialUser, authConfigured }: Dashboar
       if (!response.ok) return;
       const payload = (await response.json()) as OverviewData;
       setOverviewData(payload);
+      if (payload.source === "live") setChannelCount((current) => Math.max(current, 1));
     }
 
     void loadOverview();
@@ -118,6 +118,9 @@ export default function DashboardShell({ initialUser, authConfigured }: Dashboar
     await authClient.signOut();
     router.refresh();
   }
+
+  const hasChannels = channelCount > 0;
+  const showEmptyOverview = Boolean(initialUser) && !hasChannels;
 
   return (
     <div className="dashboard-shell">
@@ -157,16 +160,21 @@ export default function DashboardShell({ initialUser, authConfigured }: Dashboar
         <section className="sidebar-networks" aria-labelledby="sidebar-networks-title">
           <div className="sidebar-section-title">
             <span id="sidebar-networks-title">Connected networks</span>
-            <small>3 synced</small>
+            <small>{hasChannels ? `${channelCount} synced` : "Nothing connected"}</small>
           </div>
-          <div className="network-stack">
-            {socialBrandList.map((platform) => (
-              <span className="network-pill" key={platform}>
-                <SocialLogo platform={platform} size={12} />
-                {socialBrands[platform].label}
+          {hasChannels ? (
+            <div className="network-stack">
+              <span className="network-pill">
+                <SocialLogo platform="youtube" size={12} />
+                YouTube
               </span>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <button className="sidebar-connect-cta" type="button" onClick={() => setActiveSection("channels")}>
+              <Plus size={13} aria-hidden="true" />
+              Connect a channel
+            </button>
+          )}
         </section>
 
         <div className="sidebar-profile" aria-label="Profile actions">
@@ -211,17 +219,21 @@ export default function DashboardShell({ initialUser, authConfigured }: Dashboar
         </header>
 
         {activeSection === "channels" ? (
-          <ChannelManager isAuthenticated={Boolean(initialUser)} />
+          <ChannelManager isAuthenticated={Boolean(initialUser)} onChannelsChange={setChannelCount} />
         ) : activeSection === "chat" ? (
           <GrowthAdvisor isAuthenticated={Boolean(initialUser)} />
         ) : activeSection === "overview" ? (
-          <OverviewDashboard
-            activeMetrics={activeMetrics}
-            activePlatform={activePlatform}
-            filteredContent={filteredContent}
-            overviewData={overviewData}
-            setActivePlatform={setActivePlatform}
-          />
+          showEmptyOverview ? (
+            <OverviewEmptyState onConnect={() => setActiveSection("channels")} />
+          ) : (
+            <OverviewDashboard
+              activeMetrics={activeMetrics}
+              activePlatform={activePlatform}
+              filteredContent={filteredContent}
+              overviewData={overviewData}
+              setActivePlatform={setActivePlatform}
+            />
+          )
         ) : (
           <SectionPlaceholder section={currentCopy} />
         )}
@@ -247,6 +259,28 @@ function getSearchPlaceholder(section: AppSection) {
   return "Search posts or channels";
 }
 
+function OverviewEmptyState({ onConnect }: { onConnect: () => void }) {
+  return (
+    <motion.section
+      animate={{ opacity: 1, y: 0 }}
+      className="panel overview-empty"
+      initial={{ opacity: 0, y: 12 }}
+      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <div className="overview-empty-icon" aria-hidden="true">
+        <RadioTower size={28} />
+      </div>
+      <p className="section-kicker">No channels connected</p>
+      <h2>Connect a channel to see your analytics</h2>
+      <span>Hook up YouTube and we will pull the last 7 days of views, audience, and top posts.</span>
+      <button className="primary-button" type="button" onClick={onConnect}>
+        <Plus size={16} />
+        Connect YouTube
+      </button>
+    </motion.section>
+  );
+}
+
 function OverviewDashboard({
   activeMetrics,
   activePlatform,
@@ -270,8 +304,8 @@ function OverviewDashboard({
       <section className="control-strip" aria-labelledby="dashboard-title">
         <div className="control-copy">
           <p className="section-kicker">Cross-channel summary</p>
-          <h2 id="dashboard-title">{overviewData.dateRange} performance</h2>
-          <span>{overviewData.source === "live" ? "Live YouTube analytics from connected channels." : "Demo data from YouTube, TikTok, and Instagram."}</span>
+          <h2 id="dashboard-title">{overviewData.dateRange || "Last 7 days"} performance</h2>
+          <span>Live YouTube analytics from your connected channels.</span>
         </div>
 
         <div className="platform-tabs" role="tablist" aria-label="Filter analytics by platform">
@@ -288,8 +322,8 @@ function OverviewDashboard({
 
       <section className="metric-row" aria-label={`${activeMetrics.label} key metrics`}>
         <MetricCard delta={activeMetrics.growth} icon={Eye} label="Views" value={activeMetrics.views} />
-        <MetricCard delta="+8.6k" icon={UsersRound} label="Audience" value={activeMetrics.audience} />
-        <MetricCard delta="+1.2 pts" icon={Sparkles} label="Engagement" textValue value={activeMetrics.engagement} />
+        <MetricCard delta="" icon={UsersRound} label="Audience" value={activeMetrics.audience} />
+        <MetricCard delta="" icon={Sparkles} label="Engagement" textValue value={activeMetrics.engagement} />
         <MetricCard delta={activeMetrics.conversion} icon={ArrowUpRight} label="Posts tracked" textValue value={activeMetrics.posts} />
       </section>
 

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { asc, desc, eq, inArray } from "drizzle-orm";
-import { chatThreads } from "../../../../data/chat";
 import { db } from "../../../../db";
 import { chatMessages, chatThreads as chatThreadTable } from "../../../../db/schema";
 import { getCurrentUser } from "../../../../lib/current-user";
@@ -8,8 +7,7 @@ import type { ChatMessage, ChatThread } from "../../../../types/analytics";
 
 export async function GET() {
   const user = await getCurrentUser();
-
-  if (!user) return NextResponse.json({ threads: chatThreads, source: "demo" });
+  if (!user) return NextResponse.json({ threads: [] }, { status: 401 });
 
   const threads = await db
     .select({
@@ -22,7 +20,8 @@ export async function GET() {
     .orderBy(desc(chatThreadTable.updatedAt))
     .limit(20);
 
-  if (!threads.length) return NextResponse.json({ threads: chatThreads, source: "demo" });
+  if (!threads.length) return NextResponse.json({ threads: [] });
+
   const threadIds = threads.map((thread) => thread.id);
   const messages = await db
     .select({
@@ -55,5 +54,5 @@ export async function GET() {
     messages: messagesByThread.get(thread.id) ?? [],
   }));
 
-  return NextResponse.json({ threads: payload, source: "live" });
+  return NextResponse.json({ threads: payload });
 }

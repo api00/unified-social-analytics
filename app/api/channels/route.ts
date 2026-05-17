@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
-import { channelAccounts } from "../../../data/channels";
 import { formatCompactNumber } from "../../../data/analytics";
 import { db } from "../../../db";
 import { youtubeChannels } from "../../../db/schema";
 import { getCurrentUser } from "../../../lib/current-user";
-import { hasDatabaseEnv } from "../../../lib/env";
 import type { ChannelAccount } from "../../../types/analytics";
 
 export async function GET() {
   const user = await getCurrentUser();
-
-  if (!hasDatabaseEnv()) return NextResponse.json({ channels: channelAccounts, source: "demo" });
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ channels: [] }, { status: 401 });
 
   const data = await db
     .select({
@@ -41,5 +37,5 @@ export async function GET() {
     thumbnailUrl: channel.thumbnailUrl,
   }));
 
-  return NextResponse.json({ channels, source: channels.length ? "live" : "demo" });
+  return NextResponse.json({ channels });
 }

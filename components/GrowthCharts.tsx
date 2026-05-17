@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import type { CSSProperties } from "react";
-import { contentByFormat, formatCompactNumber, weeklySeries } from "../data/analytics";
+import { formatCompactNumber } from "../data/analytics";
 import { getPlatformColor, getPlatformId, isSocialPlatformId } from "../data/socials";
 import type { ContentFormatDatum, DataSource, PlatformId, WeeklySeriesPoint } from "../types/analytics";
 import SocialLogo from "./SocialLogo";
@@ -40,14 +40,14 @@ const socialPlatformIds = new Set(["youtube", "tiktok", "instagram"]);
 
 export default function GrowthCharts({
   activePlatform,
-  contentByFormatData = contentByFormat,
-  source = "demo",
-  weeklySeriesData = weeklySeries,
+  contentByFormatData,
+  source,
+  weeklySeriesData,
 }: {
   activePlatform: PlatformId;
-  contentByFormatData?: ContentFormatDatum[];
-  source?: DataSource;
-  weeklySeriesData?: WeeklySeriesPoint[];
+  contentByFormatData: ContentFormatDatum[];
+  source: DataSource;
+  weeklySeriesData: WeeklySeriesPoint[];
 }) {
   const activeKey = metricKeyByPlatform[activePlatform] ?? "total";
   const showAllSeries = activePlatform === "all";
@@ -61,7 +61,7 @@ export default function GrowthCharts({
             <p className="section-kicker">Performance trend</p>
             <h2 id="growth-title">Daily views</h2>
           </div>
-          <span className="panel-meta">Demo data</span>
+          <span className="panel-meta">{source === "live" ? "Live data" : "—"}</span>
         </div>
 
         <div className="chart-block" role="img" aria-label="Area chart showing daily views by selected platform">
@@ -116,7 +116,7 @@ export default function GrowthCharts({
             <p className="section-kicker">Format demand</p>
             <h2 id="format-title">Views by content type</h2>
           </div>
-          <span className="panel-meta">{source === "live" ? "Live data" : "Demo data"}</span>
+          <span className="panel-meta">{source === "live" ? "Live data" : "—"}</span>
         </div>
 
         <div className="chart-block" role="img" aria-label="Bar chart showing performance by content format">

@@ -1,10 +1,10 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import { audienceMix, formatCompactNumber } from "../data/analytics";
+import { formatCompactNumber } from "../data/analytics";
 import type { AudienceMixItem } from "../types/analytics";
 import { getPlatformColor } from "../data/socials";
 import SocialLogo from "./SocialLogo";
 
-export default function PlatformBreakdown({ audienceMixData = audienceMix }: { audienceMixData?: AudienceMixItem[] }) {
+export default function PlatformBreakdown({ audienceMixData }: { audienceMixData: AudienceMixItem[] }) {
   const total = audienceMixData.reduce((sum, item) => sum + item.value, 0);
 
   return (
