@@ -223,6 +223,10 @@ export default function ChannelManager({ isAuthenticated, onChannelsChange }: Ch
                 </div>
               </div>
 
+              {statusMessage ? (
+                <p className="dialog-error" role="status">{statusMessage}</p>
+              ) : null}
+
               <div className="dialog-actions">
                 <button className="secondary-button" onClick={() => setIsAddingChannel(false)} type="button">
                   Cancel

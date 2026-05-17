@@ -272,3 +272,14 @@
 .empty-section {
   max-width: 42rem;
 }
+
+.dialog-error {
+  margin: 0;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: var(--text-small);
+  font-weight: var(--weight-semibold);
+}
