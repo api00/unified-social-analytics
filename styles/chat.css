@@ -188,3 +188,124 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
 }
+
+.chat-message.is-agent .chat-message-body {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.chat-message.is-agent .chat-message-body > * {
+  margin: 0;
+}
+
+.chat-message.is-agent .chat-message-body p {
+  line-height: 1.55;
+  color: var(--color-ink);
+}
+
+.chat-message.is-agent .chat-message-body h1,
+.chat-message.is-agent .chat-message-body h2,
+.chat-message.is-agent .chat-message-body h3 {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--color-strong);
+}
+
+.chat-message.is-agent .chat-message-body h1 { font-size: 1.05rem; }
+.chat-message.is-agent .chat-message-body h2 { font-size: 0.98rem; }
+.chat-message.is-agent .chat-message-body h3 {
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+
+.chat-message.is-agent .chat-message-body strong {
+  color: var(--color-strong);
+  font-weight: var(--weight-bold);
+}
+
+.chat-message.is-agent .chat-message-body em {
+  color: var(--color-ink);
+}
+
+.chat-message.is-agent .chat-message-body code {
+  padding: 0.08rem 0.32rem;
+  border-radius: 0.3rem;
+  background: var(--color-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--color-strong);
+}
+
+.chat-message.is-agent .chat-message-body ul,
+.chat-message.is-agent .chat-message-body ol {
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.chat-message.is-agent .chat-message-body li {
+  line-height: 1.5;
+  color: var(--color-ink);
+}
+
+.chat-message.is-agent .chat-message-body li::marker {
+  color: var(--color-muted);
+  font-weight: var(--weight-semibold);
+}
+
+.chat-message.is-agent .chat-message-body table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-size: 0.85rem;
+  margin: 0.25rem 0;
+}
+
+.chat-message.is-agent .chat-message-body thead {
+  background: var(--color-surface-muted);
+}
+
+.chat-message.is-agent .chat-message-body th,
+.chat-message.is-agent .chat-message-body td {
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-line);
+  vertical-align: top;
+}
+
+.chat-message.is-agent .chat-message-body th {
+  font-weight: var(--weight-bold);
+  color: var(--color-strong);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chat-message.is-agent .chat-message-body tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.chat-message.is-agent .chat-message-body tbody td {
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-message.is-agent .chat-message-body blockquote {
+  padding: 0.5rem 0.8rem;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-accent-soft);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--color-ink);
+}
+
+.chat-message.is-agent .chat-message-body a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

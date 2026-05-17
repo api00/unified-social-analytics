@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { MessageSquareText, Plus, SendHorizontal } from "lucide-react";
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { ChatMessage, ChatThread } from "../types/analytics";
 
 const NEW_THREAD_ID = "new";
@@ -145,7 +147,13 @@ export default function GrowthAdvisor({ isAuthenticated }: { isAuthenticated: bo
           ) : (
             messages.map((message) => (
               <article className={message.role === "agent" ? "chat-message is-agent" : "chat-message is-user"} key={message.id}>
-                <p>{message.text}</p>
+                {message.role === "agent" ? (
+                  <div className="chat-message-body">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p>{message.text}</p>
+                )}
               </article>
             ))
           )}
