@@ -1,7 +1,5 @@
 import {
   Area,
-  Bar,
-  BarChart,
   CartesianGrid,
   ComposedChart,
   Legend,
@@ -119,33 +117,44 @@ export default function GrowthCharts({
           <span className="panel-meta">{source === "live" ? "Live data" : "—"}</span>
         </div>
 
-        <div className="chart-block" role="img" aria-label="Bar chart showing performance by content format">
-          <ResponsiveContainer width="100%" height={318}>
-            <BarChart data={contentByFormatData} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 10 }}>
-              <CartesianGrid stroke={gridColor} strokeDasharray="4 5" horizontal={false} />
-              <XAxis
-                axisLine={false}
-                tick={axisStyle}
-                tickFormatter={(value) => formatCompactNumber(value)}
-                tickLine={false}
-                type="number"
-              />
-              <YAxis dataKey="name" tick={axisStyle} type="category" tickLine={false} axisLine={false} width={92} />
-              <Tooltip content={<FormatTooltip />} cursor={{ fill: "rgba(49, 91, 232, 0.06)" }} />
-              <Bar
-                background={{ fill: "#eef1f5", radius: 8 }}
-                barSize={16}
-                dataKey="views"
-                fill={activeColor}
-                isAnimationActive={false}
-                name="Views"
-                radius={[0, 8, 8, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <FormatBreakdown data={contentByFormatData} color={activeColor} />
       </section>
     </>
+  );
+}
+
+function FormatBreakdown({ data, color }: { data: ContentFormatDatum[]; color: string }) {
+  const sorted = [...data].sort((a, b) => b.views - a.views);
+
+  if (!sorted.length) {
+    return (
+      <div className="format-empty" role="status">
+        <strong>Not enough data yet</strong>
+        <small>Once you have synced views, formats will appear here.</small>
+      </div>
+    );
+  }
+
+  const max = Math.max(...sorted.map((item) => item.views), 1);
+
+  return (
+    <ul className="format-list" aria-label="Views by content format">
+      {sorted.map((item) => {
+        const widthPct = Math.max(6, Math.round((item.views / max) * 100));
+        return (
+          <li className="format-row" key={item.name}>
+            <span className="format-name">{item.name}</span>
+            <span className="format-bar" aria-hidden="true">
+              <span
+                className="format-bar-fill"
+                style={{ "--bar-color": color, "--bar-width": `${widthPct}%` } as CSSProperties}
+              />
+            </span>
+            <strong className="format-value">{formatCompactNumber(item.views)}</strong>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -202,33 +211,3 @@ function ViewsTooltip({
   );
 }
 
-function FormatTooltip({
-  active,
-  label,
-  payload,
-}: {
-  active?: boolean;
-  label?: string;
-  payload?: ChartPayloadItem[];
-}) {
-  if (!active || !payload?.length) return null;
-  const item = payload[0];
-
-  return (
-    <div className="chart-tooltip chart-tooltip--metric">
-      <div className="tooltip-header">
-        <div>
-          <strong>{label}</strong>
-          <span>Format demand</span>
-        </div>
-      </div>
-      <div className="tooltip-row is-total">
-        <span className="tooltip-total-mark" aria-hidden="true">
-          <i style={{ "--tooltip-color": item.color } as CSSProperties} />
-        </span>
-        <span className="tooltip-label">{item.name}</span>
-        <strong>{formatCompactNumber(Number(item.value ?? 0))}</strong>
-      </div>
-    </div>
-  );
-}

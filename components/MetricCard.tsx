@@ -26,7 +26,7 @@ export default function MetricCard({
       </div>
       <strong>{renderedValue}</strong>
       <div className="metric-card-footer">
-        <span>{delta}</span>
+        {delta ? <span>{delta}</span> : null}
         <small>vs prior week</small>
       </div>
     </article>

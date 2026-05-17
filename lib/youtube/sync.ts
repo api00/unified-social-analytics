@@ -25,6 +25,26 @@ function toNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function parseIsoDurationSeconds(iso: string | null | undefined) {
+  if (!iso) return 0;
+  const match = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso);
+  if (!match) return 0;
+  const h = Number(match[1] ?? 0);
+  const m = Number(match[2] ?? 0);
+  const s = Number(match[3] ?? 0);
+  return h * 3600 + m * 60 + s;
+}
+
+function classifyVideo(
+  snippet: { liveBroadcastContent?: string | null } | null | undefined,
+  contentDetails: { duration?: string | null } | null | undefined
+) {
+  if (snippet?.liveBroadcastContent === "live" || snippet?.liveBroadcastContent === "upcoming") return "Live";
+  const seconds = parseIsoDurationSeconds(contentDetails?.duration);
+  if (seconds > 0 && seconds <= 60) return "Short";
+  return "Long-form";
+}
+
 function excluded(column: string) {
   return sql.raw(`excluded.${column}`);
 }
@@ -164,7 +184,7 @@ export async function syncYouTubeAccount(account: ConnectedAccountRow) {
     const videoRows = (videoReport.data.rows ?? []) as unknown[][];
     const videoIds = videoRows.map((row) => String(row[0])).filter(Boolean);
     const videoDetails = videoIds.length
-      ? await youtube.videos.list({ id: videoIds, part: ["snippet"] })
+      ? await youtube.videos.list({ id: videoIds, part: ["snippet", "contentDetails"] })
       : null;
     const detailsById = new Map(
       (videoDetails?.data.items ?? []).map((video) => [video.id, video])
@@ -177,13 +197,14 @@ export async function syncYouTubeAccount(account: ConnectedAccountRow) {
           const externalId = String(row[0]);
           const details = detailsById.get(externalId);
           const snippetDetails = details?.snippet;
+          const contentDetails = details?.contentDetails;
           return {
             userId: account.userId,
             channelId: channelRow.id,
             platform: "youtube",
             externalId,
             title: snippetDetails?.title ?? "Untitled YouTube video",
-            contentType: "Video",
+            contentType: classifyVideo(snippetDetails, contentDetails),
             url: `https://www.youtube.com/watch?v=${externalId}`,
             thumbnailUrl: snippetDetails?.thumbnails?.medium?.url ?? snippetDetails?.thumbnails?.default?.url ?? null,
             publishedAt: snippetDetails?.publishedAt ? new Date(snippetDetails.publishedAt) : null,
@@ -193,6 +214,8 @@ export async function syncYouTubeAccount(account: ConnectedAccountRow) {
               likes: toNumber(row[2]),
               comments: toNumber(row[3]),
               shares: toNumber(row[4]),
+              durationSeconds: parseIsoDurationSeconds(contentDetails?.duration),
+              liveBroadcastContent: snippetDetails?.liveBroadcastContent ?? null,
             },
             lastSyncedAt: new Date(),
             updatedAt: new Date(),
