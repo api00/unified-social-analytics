@@ -407,6 +407,7 @@ function PlatformTab({
       aria-label={platform.label}
       aria-selected={isActive}
       className={isActive ? "platform-tab is-active" : "platform-tab"}
+      data-platform={platform.id}
       onClick={onClick}
       role="tab"
       style={{ "--platform-color": platformColor } as CSSProperties}
