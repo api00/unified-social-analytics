@@ -301,6 +301,9 @@
 
 .panel-heading h2 {
   font-size: var(--text-h3);
+  font-weight: var(--weight-bold);
+  color: var(--color-strong);
+  letter-spacing: -0.005em;
 }
 
 .overview-empty {
@@ -325,6 +328,9 @@
 
 .overview-empty h2 {
   font-size: var(--text-h2);
+  font-weight: var(--weight-bold);
+  color: var(--color-strong);
+  letter-spacing: -0.01em;
   max-width: 26rem;
 }
 

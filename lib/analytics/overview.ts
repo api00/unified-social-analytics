@@ -20,6 +20,19 @@ function percentChange(first: number, last: number) {
   return `${change >= 0 ? "+" : ""}${change.toFixed(1)}%`;
 }
 
+function formatDateRange(startIso: string, endIso: string) {
+  const start = new Date(`${startIso}T00:00:00Z`);
+  const end = new Date(`${endIso}T00:00:00Z`);
+  const fmt = (date: Date, options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat("en", { ...options, timeZone: "UTC" }).format(date);
+
+  const sameMonth = start.getUTCMonth() === end.getUTCMonth() && start.getUTCFullYear() === end.getUTCFullYear();
+  if (sameMonth) {
+    return `${fmt(start, { month: "short", day: "numeric" })} – ${fmt(end, { day: "numeric" })}`;
+  }
+  return `${fmt(start, { month: "short", day: "numeric" })} – ${fmt(end, { month: "short", day: "numeric" })}`;
+}
+
 export async function getOverviewForUser(userId: string): Promise<OverviewData> {
   const channels = await db
     .select({
@@ -101,7 +114,7 @@ export async function getOverviewForUser(userId: string): Promise<OverviewData> 
 
   return {
     source: "live",
-    dateRange: `${startDate} to ${dateDaysAgo(0)}`,
+    dateRange: formatDateRange(startDate, dateDaysAgo(0)),
     platformOptions,
     weeklySeries,
     audienceMix: [{ name: "youtube", value: totalAudience }],

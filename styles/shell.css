@@ -304,7 +304,14 @@
 
 .topbar h1 {
   font-size: var(--text-h1);
+  font-weight: var(--weight-bold);
   line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: var(--color-strong);
+}
+
+.topbar-copy p {
+  font-weight: var(--weight-medium);
 }
 
 .topbar-actions {
@@ -340,8 +347,9 @@
   color: var(--color-strong);
   font-family: var(--font-display);
   font-size: var(--text-h2);
+  font-weight: var(--weight-bold);
   line-height: 1.16;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
 }
 
 .control-copy span {
