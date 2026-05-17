@@ -1,22 +1,17 @@
 import { google } from "googleapis";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { eq, sql } from "drizzle-orm";
+import { db } from "../../db";
+import { analyticsDaily, connectedAccounts, contentItems, syncRuns, youtubeChannels } from "../../db/schema";
 import { createYouTubeOAuthClient, getYouTubeRedirectUri } from "./oauth";
 
 export type ConnectedAccountRow = {
   id: string;
-  user_id: string;
+  userId: string;
   provider: "youtube";
-  provider_account_id: string;
-  access_token: string | null;
-  refresh_token: string | null;
-  expires_at: string | null;
-};
-
-type YouTubeChannelRow = {
-  id: string;
-  user_id: string;
-  connected_account_id: string;
-  youtube_channel_id: string;
+  providerAccountId: string;
+  accessToken: string | null;
+  refreshToken: string | null;
+  expiresAt: Date | null;
 };
 
 function dateDaysAgo(days: number) {
@@ -30,34 +25,43 @@ function toNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export async function syncYouTubeAccount(supabase: SupabaseClient, account: ConnectedAccountRow) {
-  const startedAt = new Date().toISOString();
-  const { data: run } = await supabase
-    .from("sync_runs")
-    .insert({
-      user_id: account.user_id,
-      connected_account_id: account.id,
+function excluded(column: string) {
+  return sql.raw(`excluded.${column}`);
+}
+
+export async function syncYouTubeAccount(account: ConnectedAccountRow) {
+  const [run] = await db
+    .insert(syncRuns)
+    .values({
+      userId: account.userId,
+      connectedAccountId: account.id,
       provider: "youtube",
       status: "running",
-      started_at: startedAt,
     })
-    .select("id")
-    .single();
+    .returning({ id: syncRuns.id });
 
   try {
-    if (!account.refresh_token) throw new Error("Missing YouTube refresh token. Reconnect the channel.");
+    if (!account.refreshToken) throw new Error("Missing YouTube refresh token. Reconnect the channel.");
 
     const redirectUri = getYouTubeRedirectUri();
     const oauth = createYouTubeOAuthClient(redirectUri);
     if (!oauth) throw new Error("Google OAuth credentials are not configured.");
 
     oauth.setCredentials({
-      access_token: account.access_token ?? undefined,
-      refresh_token: account.refresh_token,
-      expiry_date: account.expires_at ? new Date(account.expires_at).getTime() : undefined,
+      access_token: account.accessToken ?? undefined,
+      refresh_token: account.refreshToken,
+      expiry_date: account.expiresAt ? account.expiresAt.getTime() : undefined,
     });
 
     await oauth.getAccessToken();
+    await db
+      .update(connectedAccounts)
+      .set({
+        accessToken: oauth.credentials.access_token ?? account.accessToken,
+        expiresAt: oauth.credentials.expiry_date ? new Date(oauth.credentials.expiry_date) : account.expiresAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(connectedAccounts.id, account.id));
 
     const youtube = google.youtube({ version: "v3", auth: oauth });
     const analytics = google.youtubeAnalytics({ version: "v2", auth: oauth });
@@ -72,28 +76,35 @@ export async function syncYouTubeAccount(supabase: SupabaseClient, account: Conn
     const stats = channel.statistics;
     const snippet = channel.snippet;
 
-    const { data: channelRow, error: channelError } = await supabase
-      .from("youtube_channels")
-      .upsert(
-        {
-          user_id: account.user_id,
-          connected_account_id: account.id,
-          youtube_channel_id: channel.id,
-          title: snippet?.title ?? "YouTube channel",
-          handle: snippet?.customUrl ?? null,
-          thumbnail_url: snippet?.thumbnails?.default?.url ?? snippet?.thumbnails?.medium?.url ?? null,
-          subscriber_count: toNumber(stats?.subscriberCount),
-          view_count: toNumber(stats?.viewCount),
-          video_count: toNumber(stats?.videoCount),
-          last_synced_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,youtube_channel_id" }
-      )
-      .select("id,user_id,connected_account_id,youtube_channel_id")
-      .single<YouTubeChannelRow>();
+    const channelValues = {
+      userId: account.userId,
+      connectedAccountId: account.id,
+      youtubeChannelId: channel.id,
+      title: snippet?.title ?? "YouTube channel",
+      handle: snippet?.customUrl ?? null,
+      thumbnailUrl: snippet?.thumbnails?.default?.url ?? snippet?.thumbnails?.medium?.url ?? null,
+      subscriberCount: toNumber(stats?.subscriberCount),
+      viewCount: toNumber(stats?.viewCount),
+      videoCount: toNumber(stats?.videoCount),
+      lastSyncedAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-    if (channelError || !channelRow) throw new Error(channelError?.message ?? "Could not upsert YouTube channel.");
+    const [channelRow] = await db
+      .insert(youtubeChannels)
+      .values(channelValues)
+      .onConflictDoUpdate({
+        target: [youtubeChannels.userId, youtubeChannels.youtubeChannelId],
+        set: channelValues,
+      })
+      .returning({
+        id: youtubeChannels.id,
+        userId: youtubeChannels.userId,
+        connectedAccountId: youtubeChannels.connectedAccountId,
+        youtubeChannelId: youtubeChannels.youtubeChannelId,
+      });
+
+    if (!channelRow) throw new Error("Could not upsert YouTube channel.");
 
     const startDate = dateDaysAgo(6);
     const endDate = dateDaysAgo(0);
@@ -109,23 +120,35 @@ export async function syncYouTubeAccount(supabase: SupabaseClient, account: Conn
 
     const dailyRows = (dailyReport.data.rows ?? []) as unknown[][];
     if (dailyRows.length) {
-      await supabase.from("analytics_daily").upsert(
-        dailyRows.map((row) => ({
-          user_id: account.user_id,
-          channel_id: channelRow.id,
+      await db
+        .insert(analyticsDaily)
+        .values(dailyRows.map((row) => ({
+          userId: account.userId,
+          channelId: channelRow.id,
           platform: "youtube",
           date: String(row[0]),
           views: toNumber(row[1]),
-          subscribers_gained: toNumber(row[2]),
-          subscribers_lost: toNumber(row[3]),
+          subscribersGained: toNumber(row[2]),
+          subscribersLost: toNumber(row[3]),
           likes: toNumber(row[4]),
           comments: toNumber(row[5]),
           shares: toNumber(row[6]),
-          estimated_minutes_watched: toNumber(row[7]),
-          updated_at: new Date().toISOString(),
-        })),
-        { onConflict: "user_id,channel_id,platform,date" }
-      );
+          estimatedMinutesWatched: String(toNumber(row[7])),
+          updatedAt: new Date(),
+        })))
+        .onConflictDoUpdate({
+          target: [analyticsDaily.userId, analyticsDaily.channelId, analyticsDaily.platform, analyticsDaily.date],
+          set: {
+            views: excluded("views"),
+            subscribersGained: excluded("subscribers_gained"),
+            subscribersLost: excluded("subscribers_lost"),
+            likes: excluded("likes"),
+            comments: excluded("comments"),
+            shares: excluded("shares"),
+            estimatedMinutesWatched: excluded("estimated_minutes_watched"),
+            updatedAt: new Date(),
+          },
+        });
     }
 
     const videoReport = await analytics.reports.query({
@@ -148,56 +171,75 @@ export async function syncYouTubeAccount(supabase: SupabaseClient, account: Conn
     );
 
     if (videoRows.length) {
-      await supabase.from("content_items").upsert(
-        videoRows.map((row) => {
+      await db
+        .insert(contentItems)
+        .values(videoRows.map((row) => {
           const externalId = String(row[0]);
           const details = detailsById.get(externalId);
           const snippetDetails = details?.snippet;
           return {
-            user_id: account.user_id,
-            channel_id: channelRow.id,
+            userId: account.userId,
+            channelId: channelRow.id,
             platform: "youtube",
-            external_id: externalId,
+            externalId,
             title: snippetDetails?.title ?? "Untitled YouTube video",
-            content_type: "Video",
+            contentType: "Video",
             url: `https://www.youtube.com/watch?v=${externalId}`,
-            thumbnail_url: snippetDetails?.thumbnails?.medium?.url ?? snippetDetails?.thumbnails?.default?.url ?? null,
-            published_at: snippetDetails?.publishedAt ?? null,
+            thumbnailUrl: snippetDetails?.thumbnails?.medium?.url ?? snippetDetails?.thumbnails?.default?.url ?? null,
+            publishedAt: snippetDetails?.publishedAt ? new Date(snippetDetails.publishedAt) : null,
             views: toNumber(row[1]),
-            engagement_count: toNumber(row[2]) + toNumber(row[3]) + toNumber(row[4]),
-            raw_metrics: {
+            engagementCount: toNumber(row[2]) + toNumber(row[3]) + toNumber(row[4]),
+            rawMetrics: {
               likes: toNumber(row[2]),
               comments: toNumber(row[3]),
               shares: toNumber(row[4]),
             },
-            last_synced_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            lastSyncedAt: new Date(),
+            updatedAt: new Date(),
           };
-        }),
-        { onConflict: "user_id,platform,external_id" }
-      );
+        }))
+        .onConflictDoUpdate({
+          target: [contentItems.userId, contentItems.platform, contentItems.externalId],
+          set: {
+            channelId: channelRow.id,
+            title: excluded("title"),
+            contentType: excluded("content_type"),
+            url: excluded("url"),
+            thumbnailUrl: excluded("thumbnail_url"),
+            publishedAt: excluded("published_at"),
+            views: excluded("views"),
+            engagementCount: excluded("engagement_count"),
+            rawMetrics: excluded("raw_metrics"),
+            lastSyncedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
     }
 
-    await supabase
-      .from("sync_runs")
-      .update({
-        status: "success",
-        finished_at: new Date().toISOString(),
-        metadata: { dailyRows: dailyRows.length, videoRows: videoRows.length },
-      })
-      .eq("id", run?.id);
+    if (run?.id) {
+      await db
+        .update(syncRuns)
+        .set({
+          status: "success",
+          finishedAt: new Date(),
+          metadata: { dailyRows: dailyRows.length, videoRows: videoRows.length },
+        })
+        .where(eq(syncRuns.id, run.id));
+    }
 
     return { ok: true, dailyRows: dailyRows.length, videoRows: videoRows.length };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown YouTube sync error.";
-    await supabase
-      .from("sync_runs")
-      .update({
-        status: "error",
-        finished_at: new Date().toISOString(),
-        error_message: message,
-      })
-      .eq("id", run?.id);
+    if (run?.id) {
+      await db
+        .update(syncRuns)
+        .set({
+          status: "error",
+          finishedAt: new Date(),
+          errorMessage: message,
+        })
+        .where(eq(syncRuns.id, run.id));
+    }
     return { ok: false, error: message };
   }
 }

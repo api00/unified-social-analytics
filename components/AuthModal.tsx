@@ -5,42 +5,36 @@ import {
   ShieldCheck,
   Loader2,
 } from "lucide-react";
-import { createSupabaseBrowserClient } from "../lib/supabase/client";
+import { authClient } from "../lib/auth-client";
 import { marketingSocialBrandList, socialBrands } from "../data/socials";
 import BrandLogo from "./BrandLogo";
 import SocialLogo from "./SocialLogo";
 
 type AuthModalProps = {
-  supabaseConfigured: boolean;
+  authConfigured: boolean;
 };
 
-export default function AuthModal({ supabaseConfigured }: AuthModalProps) {
+export default function AuthModal({ authConfigured }: AuthModalProps) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   async function continueWithGoogle() {
     setError("");
 
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase || !supabaseConfigured) {
-      setError("Signup is almost ready. Add the public Supabase env values to enable Google sign in.");
+    if (!authConfigured) {
+      setError("Signup is almost ready. Add the database, Better Auth, and Google env values to enable sign in.");
       return;
     }
 
     setIsLoading(true);
-    const { error: signInError } = await supabase.auth.signInWithOAuth({
+    const { error: signInError } = await authClient.signIn.social({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: "offline",
-          prompt: "select_account",
-        },
-      },
+      callbackURL: "/",
+      scopes: ["openid", "email", "profile"],
     });
 
     if (signInError) {
-      setError(signInError.message);
+      setError(signInError.message ?? "Google sign in failed.");
       setIsLoading(false);
     }
   }

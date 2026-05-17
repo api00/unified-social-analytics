@@ -36,7 +36,7 @@ import PlatformBreakdown from "./PlatformBreakdown";
 import SocialLogo, { SocialLogoGroup } from "./SocialLogo";
 import TopContentChart from "./TopContentChart";
 import { getPlatformColor, socialBrandList, socialBrands } from "../data/socials";
-import { createSupabaseBrowserClient } from "../lib/supabase/client";
+import { authClient } from "../lib/auth-client";
 
 const navItems = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -58,7 +58,7 @@ type InitialUser = {
 
 type DashboardShellProps = {
   initialUser: InitialUser | null;
-  supabaseConfigured: boolean;
+  authConfigured: boolean;
 };
 
 const sectionCopy: Record<AppSection, { title: string; description: string }> = {
@@ -88,7 +88,7 @@ const sectionCopy: Record<AppSection, { title: string; description: string }> = 
   },
 };
 
-export default function DashboardShell({ initialUser, supabaseConfigured }: DashboardShellProps) {
+export default function DashboardShell({ initialUser, authConfigured }: DashboardShellProps) {
   const router = useRouter();
   const [activePlatform, setActivePlatform] = useState<PlatformId>("all");
   const [activeSection, setActiveSection] = useState<AppSection>("overview");
@@ -115,8 +115,7 @@ export default function DashboardShell({ initialUser, supabaseConfigured }: Dash
   }, [initialUser]);
 
   async function handleLogout() {
-    const supabase = createSupabaseBrowserClient();
-    await supabase?.auth.signOut();
+    await authClient.signOut();
     router.refresh();
   }
 
@@ -228,7 +227,7 @@ export default function DashboardShell({ initialUser, supabaseConfigured }: Dash
         )}
       </main>
 
-      {!initialUser ? <AuthModal supabaseConfigured={supabaseConfigured} /> : null}
+      {!initialUser ? <AuthModal authConfigured={authConfigured} /> : null}
     </div>
   );
 }

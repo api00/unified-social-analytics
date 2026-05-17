@@ -1,7 +1,9 @@
 import { google } from "googleapis";
 import { NextResponse, type NextRequest } from "next/server";
+import { and, eq } from "drizzle-orm";
+import { db } from "../../../../db";
+import { connectedAccounts, youtubeChannels } from "../../../../db/schema";
 import { verifyOAuthState } from "../../../../lib/oauth-state";
-import { createSupabaseServiceClient } from "../../../../lib/supabase/server";
 import { createYouTubeOAuthClient, getYouTubeRedirectUri } from "../../../../lib/youtube/oauth";
 import { syncYouTubeAccount, type ConnectedAccountRow } from "../../../../lib/youtube/sync";
 
@@ -16,10 +18,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(redirectTo);
   }
 
-  const supabase = createSupabaseServiceClient();
   const oauth = createYouTubeOAuthClient(getYouTubeRedirectUri(requestUrl.origin));
 
-  if (!supabase || !oauth) {
+  if (!oauth) {
     redirectTo.searchParams.set("error", "youtube_not_configured");
     return NextResponse.redirect(redirectTo);
   }
@@ -37,55 +38,81 @@ export async function GET(request: NextRequest) {
     const channel = channelResponse.data.items?.[0];
     if (!channel?.id) throw new Error("No YouTube channel found.");
 
-    const existing = await supabase
-      .from("connected_accounts")
-      .select("refresh_token")
-      .eq("user_id", state.userId)
-      .eq("provider", "youtube")
-      .eq("provider_account_id", channel.id)
-      .maybeSingle();
-
-    const { data: account, error: accountError } = await supabase
-      .from("connected_accounts")
-      .upsert(
-        {
-          user_id: state.userId,
-          provider: "youtube",
-          provider_account_id: channel.id,
-          access_token: tokens.access_token ?? null,
-          refresh_token: tokens.refresh_token ?? existing.data?.refresh_token ?? null,
-          expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
-          scopes: tokens.scope ?? null,
-          raw_profile: channel,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,provider,provider_account_id" }
+    const [existing] = await db
+      .select({ refreshToken: connectedAccounts.refreshToken })
+      .from(connectedAccounts)
+      .where(
+        and(
+          eq(connectedAccounts.userId, state.userId),
+          eq(connectedAccounts.provider, "youtube"),
+          eq(connectedAccounts.providerAccountId, channel.id)
+        )
       )
-      .select("id,user_id,provider,provider_account_id,access_token,refresh_token,expires_at")
-      .single<ConnectedAccountRow>();
+      .limit(1);
 
-    if (accountError || !account) throw new Error(accountError?.message ?? "Could not store YouTube account.");
+    const accountValues = {
+      userId: state.userId,
+      provider: "youtube",
+      providerAccountId: channel.id,
+      accessToken: tokens.access_token ?? null,
+      refreshToken: tokens.refresh_token ?? existing?.refreshToken ?? null,
+      expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+      scopes: tokens.scope ?? null,
+      rawProfile: channel,
+      updatedAt: new Date(),
+    };
+
+    const [account] = await db
+      .insert(connectedAccounts)
+      .values(accountValues)
+      .onConflictDoUpdate({
+        target: [connectedAccounts.userId, connectedAccounts.provider, connectedAccounts.providerAccountId],
+        set: accountValues,
+      })
+      .returning({
+        id: connectedAccounts.id,
+        userId: connectedAccounts.userId,
+        provider: connectedAccounts.provider,
+        providerAccountId: connectedAccounts.providerAccountId,
+        accessToken: connectedAccounts.accessToken,
+        refreshToken: connectedAccounts.refreshToken,
+        expiresAt: connectedAccounts.expiresAt,
+      });
+
+    if (!account) throw new Error("Could not store YouTube account.");
 
     const stats = channel.statistics;
     const snippet = channel.snippet;
 
-    await supabase.from("youtube_channels").upsert(
-      {
-        user_id: state.userId,
-        connected_account_id: account.id,
-        youtube_channel_id: channel.id,
+    await db
+      .insert(youtubeChannels)
+      .values({
+        userId: state.userId,
+        connectedAccountId: account.id,
+        youtubeChannelId: channel.id,
         title: snippet?.title ?? "YouTube channel",
         handle: snippet?.customUrl ?? null,
-        thumbnail_url: snippet?.thumbnails?.default?.url ?? snippet?.thumbnails?.medium?.url ?? null,
-        subscriber_count: Number(stats?.subscriberCount ?? 0),
-        view_count: Number(stats?.viewCount ?? 0),
-        video_count: Number(stats?.videoCount ?? 0),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,youtube_channel_id" }
-    );
+        thumbnailUrl: snippet?.thumbnails?.default?.url ?? snippet?.thumbnails?.medium?.url ?? null,
+        subscriberCount: Number(stats?.subscriberCount ?? 0),
+        viewCount: Number(stats?.viewCount ?? 0),
+        videoCount: Number(stats?.videoCount ?? 0),
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [youtubeChannels.userId, youtubeChannels.youtubeChannelId],
+        set: {
+          connectedAccountId: account.id,
+          title: snippet?.title ?? "YouTube channel",
+          handle: snippet?.customUrl ?? null,
+          thumbnailUrl: snippet?.thumbnails?.default?.url ?? snippet?.thumbnails?.medium?.url ?? null,
+          subscriberCount: Number(stats?.subscriberCount ?? 0),
+          viewCount: Number(stats?.viewCount ?? 0),
+          videoCount: Number(stats?.videoCount ?? 0),
+          updatedAt: new Date(),
+        },
+      });
 
-    await syncYouTubeAccount(supabase, account);
+    await syncYouTubeAccount(account as ConnectedAccountRow);
     redirectTo.searchParams.set("status", "connected");
   } catch (error) {
     redirectTo.searchParams.set("error", error instanceof Error ? error.message : "youtube_callback_failed");

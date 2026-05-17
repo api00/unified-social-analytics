@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createSupabaseServiceClient } from "../../../../lib/supabase/server";
+import { eq } from "drizzle-orm";
+import { db } from "../../../../db";
+import { connectedAccounts } from "../../../../db/schema";
 import { syncYouTubeAccount, type ConnectedAccountRow } from "../../../../lib/youtube/sync";
 
 export async function GET(request: NextRequest) {
@@ -12,18 +14,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized cron request." }, { status: 401 });
   }
 
-  const supabase = createSupabaseServiceClient();
-  if (!supabase) return NextResponse.json({ error: "Supabase service role is not configured." }, { status: 503 });
+  const accounts = await db
+    .select({
+      id: connectedAccounts.id,
+      userId: connectedAccounts.userId,
+      provider: connectedAccounts.provider,
+      providerAccountId: connectedAccounts.providerAccountId,
+      accessToken: connectedAccounts.accessToken,
+      refreshToken: connectedAccounts.refreshToken,
+      expiresAt: connectedAccounts.expiresAt,
+    })
+    .from(connectedAccounts)
+    .where(eq(connectedAccounts.provider, "youtube"));
 
-  const { data: accounts, error } = await supabase
-    .from("connected_accounts")
-    .select("id,user_id,provider,provider_account_id,access_token,refresh_token,expires_at")
-    .eq("provider", "youtube")
-    .returns<ConnectedAccountRow[]>();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const results = await Promise.all((accounts ?? []).map((account) => syncYouTubeAccount(supabase, account)));
+  const results = await Promise.all(accounts.map((account) => syncYouTubeAccount(account as ConnectedAccountRow)));
   return NextResponse.json({
     attempted: results.length,
     synced: results.filter((result) => result.ok).length,

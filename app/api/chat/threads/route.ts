@@ -1,63 +1,57 @@
 import { NextResponse } from "next/server";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { chatThreads } from "../../../../data/chat";
-import { createSupabaseServiceClient, getAuthenticatedUser } from "../../../../lib/supabase/server";
+import { db } from "../../../../db";
+import { chatMessages, chatThreads as chatThreadTable } from "../../../../db/schema";
+import { getCurrentUser } from "../../../../lib/current-user";
 import type { ChatMessage, ChatThread } from "../../../../types/analytics";
 
-type ThreadRecord = {
-  id: string;
-  title: string;
-  updated_at: string;
-};
-
-type MessageRecord = {
-  id: string;
-  thread_id: string;
-  role: "user" | "agent";
-  content: string;
-  created_at: string;
-};
-
 export async function GET() {
-  const user = await getAuthenticatedUser();
-  const supabase = createSupabaseServiceClient();
+  const user = await getCurrentUser();
 
-  if (!supabase || !user) return NextResponse.json({ threads: chatThreads, source: "demo" });
+  if (!user) return NextResponse.json({ threads: chatThreads, source: "demo" });
 
-  const { data: threads, error: threadError } = await supabase
-    .from("chat_threads")
-    .select("id,title,updated_at")
-    .eq("user_id", user.id)
-    .order("updated_at", { ascending: false })
-    .limit(20)
-    .returns<ThreadRecord[]>();
+  const threads = await db
+    .select({
+      id: chatThreadTable.id,
+      title: chatThreadTable.title,
+      updatedAt: chatThreadTable.updatedAt,
+    })
+    .from(chatThreadTable)
+    .where(eq(chatThreadTable.userId, user.id))
+    .orderBy(desc(chatThreadTable.updatedAt))
+    .limit(20);
 
-  if (threadError) return NextResponse.json({ error: threadError.message }, { status: 500 });
-  if (!threads?.length) return NextResponse.json({ threads: chatThreads, source: "demo" });
-
+  if (!threads.length) return NextResponse.json({ threads: chatThreads, source: "demo" });
   const threadIds = threads.map((thread) => thread.id);
-  const { data: messages } = await supabase
-    .from("chat_messages")
-    .select("id,thread_id,role,content,created_at")
-    .in("thread_id", threadIds)
-    .order("created_at", { ascending: true })
-    .returns<MessageRecord[]>();
+  const messages = await db
+    .select({
+      id: chatMessages.id,
+      threadId: chatMessages.threadId,
+      role: chatMessages.role,
+      content: chatMessages.content,
+      createdAt: chatMessages.createdAt,
+    })
+    .from(chatMessages)
+    .where(inArray(chatMessages.threadId, threadIds))
+    .orderBy(asc(chatMessages.createdAt));
 
   const messagesByThread = new Map<string, ChatMessage[]>();
-  for (const message of messages ?? []) {
-    const list = messagesByThread.get(message.thread_id) ?? [];
+  for (const message of messages) {
+    const list = messagesByThread.get(message.threadId) ?? [];
     list.push({
       id: message.id,
-      role: message.role,
+      role: message.role === "user" ? "user" : "agent",
       text: message.content,
-      createdAt: message.created_at,
+      createdAt: message.createdAt.toISOString(),
     });
-    messagesByThread.set(message.thread_id, list);
+    messagesByThread.set(message.threadId, list);
   }
 
   const payload: ChatThread[] = threads.map((thread) => ({
     id: thread.id,
     title: thread.title,
-    updated: new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(thread.updated_at)),
+    updated: new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(thread.updatedAt),
     messages: messagesByThread.get(thread.id) ?? [],
   }));
 

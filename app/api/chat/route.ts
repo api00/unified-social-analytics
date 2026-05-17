@@ -1,9 +1,12 @@
 import OpenAI from "openai";
 import { NextResponse, type NextRequest } from "next/server";
+import { and, eq } from "drizzle-orm";
 import { chatThreads } from "../../../data/chat";
 import { hasOpenAIEnv } from "../../../lib/env";
 import { getOverviewForUser, summarizeOverviewForPrompt } from "../../../lib/analytics/overview";
-import { createSupabaseServiceClient, getAuthenticatedUser } from "../../../lib/supabase/server";
+import { db } from "../../../db";
+import { chatMessages, chatThreads as chatThreadTable } from "../../../db/schema";
+import { getCurrentUser } from "../../../lib/current-user";
 import type { ChatMessage } from "../../../types/analytics";
 
 type ChatRequest = {
@@ -20,13 +23,12 @@ function fallbackAdvice(question: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getAuthenticatedUser();
-  const supabase = createSupabaseServiceClient();
+  const user = await getCurrentUser();
   const body = (await request.json().catch(() => ({}))) as ChatRequest;
   const message = body.message?.trim();
 
   if (!message) return NextResponse.json({ error: "Message is required." }, { status: 400 });
-  if (!supabase || !user) {
+  if (!user) {
     const messages: ChatMessage[] = [
       ...chatThreads[0].messages,
       { id: crypto.randomUUID(), role: "user", text: message },
@@ -37,27 +39,34 @@ export async function POST(request: NextRequest) {
 
   let threadId = body.threadId;
   if (!threadId || threadId === "new" || threadId === "demo") {
-    const { data: thread, error } = await supabase
-      .from("chat_threads")
-      .insert({
-        user_id: user.id,
+    const [thread] = await db
+      .insert(chatThreadTable)
+      .values({
+        userId: user.id,
         title: message.slice(0, 54),
       })
-      .select("id")
-      .single<{ id: string }>();
+      .returning({ id: chatThreadTable.id });
 
-    if (error || !thread) return NextResponse.json({ error: error?.message ?? "Could not create chat thread." }, { status: 500 });
+    if (!thread) return NextResponse.json({ error: "Could not create chat thread." }, { status: 500 });
     threadId = thread.id;
+  } else {
+    const [thread] = await db
+      .select({ id: chatThreadTable.id })
+      .from(chatThreadTable)
+      .where(and(eq(chatThreadTable.id, threadId), eq(chatThreadTable.userId, user.id)))
+      .limit(1);
+
+    if (!thread) return NextResponse.json({ error: "Chat thread was not found." }, { status: 404 });
   }
 
-  await supabase.from("chat_messages").insert({
-    thread_id: threadId,
-    user_id: user.id,
+  await db.insert(chatMessages).values({
+    threadId,
+    userId: user.id,
     role: "user",
     content: message,
   });
 
-  const overview = await getOverviewForUser(supabase, user.id);
+  const overview = await getOverviewForUser(user.id);
   const analyticsContext = summarizeOverviewForPrompt(overview);
 
   let answer = fallbackAdvice(message);
@@ -73,34 +82,36 @@ export async function POST(request: NextRequest) {
     answer = response.output_text || answer;
   }
 
-  await supabase.from("chat_messages").insert({
-    thread_id: threadId,
-    user_id: user.id,
+  await db.insert(chatMessages).values({
+    threadId,
+    userId: user.id,
     role: "agent",
     content: answer,
   });
 
-  await supabase
-    .from("chat_threads")
-    .update({ updated_at: new Date().toISOString() })
-    .eq("id", threadId)
-    .eq("user_id", user.id);
+  await db
+    .update(chatThreadTable)
+    .set({ updatedAt: new Date() })
+    .where(and(eq(chatThreadTable.id, threadId), eq(chatThreadTable.userId, user.id)));
 
-  const { data: messages } = await supabase
-    .from("chat_messages")
-    .select("id,role,content,created_at")
-    .eq("thread_id", threadId)
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: true })
-    .returns<Array<{ id: string; role: "user" | "agent"; content: string; created_at: string }>>();
+  const messages = await db
+    .select({
+      id: chatMessages.id,
+      role: chatMessages.role,
+      content: chatMessages.content,
+      createdAt: chatMessages.createdAt,
+    })
+    .from(chatMessages)
+    .where(and(eq(chatMessages.threadId, threadId), eq(chatMessages.userId, user.id)))
+    .orderBy(chatMessages.createdAt);
 
   return NextResponse.json({
     threadId,
-    messages: (messages ?? []).map((item) => ({
+    messages: messages.map((item) => ({
       id: item.id,
-      role: item.role,
+      role: item.role === "user" ? "user" : "agent",
       text: item.content,
-      createdAt: item.created_at,
+      createdAt: item.createdAt.toISOString(),
     })),
     source: hasOpenAIEnv() ? "live" : "fallback",
   });

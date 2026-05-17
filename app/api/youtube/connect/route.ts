@@ -2,11 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { signOAuthState } from "../../../../lib/oauth-state";
 import { createYouTubeOAuthClient, getYouTubeRedirectUri, YOUTUBE_SCOPES } from "../../../../lib/youtube/oauth";
-import { getAuthenticatedUser } from "../../../../lib/supabase/server";
+import { getCurrentUser } from "../../../../lib/current-user";
 import { hasGoogleYouTubeEnv } from "../../../../lib/env";
 
 export async function GET(request: NextRequest) {
-  const user = await getAuthenticatedUser();
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Sign in before connecting YouTube." }, { status: 401 });
   if (!hasGoogleYouTubeEnv()) {
     return NextResponse.json({ error: "Google YouTube OAuth env values are not configured." }, { status: 503 });

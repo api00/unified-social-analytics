@@ -1,25 +1,30 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServiceClient, getAuthenticatedUser } from "../../../../lib/supabase/server";
+import { and, eq } from "drizzle-orm";
+import { db } from "../../../../db";
+import { connectedAccounts } from "../../../../db/schema";
+import { getCurrentUser } from "../../../../lib/current-user";
 import { syncYouTubeAccount, type ConnectedAccountRow } from "../../../../lib/youtube/sync";
 
 export async function POST() {
-  const user = await getAuthenticatedUser();
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Sign in before syncing YouTube." }, { status: 401 });
 
-  const supabase = createSupabaseServiceClient();
-  if (!supabase) return NextResponse.json({ error: "Supabase service role is not configured." }, { status: 503 });
+  const accounts = await db
+    .select({
+      id: connectedAccounts.id,
+      userId: connectedAccounts.userId,
+      provider: connectedAccounts.provider,
+      providerAccountId: connectedAccounts.providerAccountId,
+      accessToken: connectedAccounts.accessToken,
+      refreshToken: connectedAccounts.refreshToken,
+      expiresAt: connectedAccounts.expiresAt,
+    })
+    .from(connectedAccounts)
+    .where(and(eq(connectedAccounts.userId, user.id), eq(connectedAccounts.provider, "youtube")));
 
-  const { data: accounts, error } = await supabase
-    .from("connected_accounts")
-    .select("id,user_id,provider,provider_account_id,access_token,refresh_token,expires_at")
-    .eq("user_id", user.id)
-    .eq("provider", "youtube")
-    .returns<ConnectedAccountRow[]>();
+  if (!accounts.length) return NextResponse.json({ synced: 0 });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!accounts?.length) return NextResponse.json({ synced: 0 });
-
-  const results = await Promise.all(accounts.map((account) => syncYouTubeAccount(supabase, account)));
+  const results = await Promise.all(accounts.map((account) => syncYouTubeAccount(account as ConnectedAccountRow)));
   const failed = results.find((result) => !result.ok);
   if (failed && "error" in failed) return NextResponse.json({ error: failed.error, synced: 0 }, { status: 502 });
 

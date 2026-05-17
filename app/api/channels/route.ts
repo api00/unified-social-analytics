@@ -1,46 +1,44 @@
 import { NextResponse } from "next/server";
+import { desc, eq } from "drizzle-orm";
 import { channelAccounts } from "../../../data/channels";
 import { formatCompactNumber } from "../../../data/analytics";
-import { createSupabaseServiceClient, getAuthenticatedUser } from "../../../lib/supabase/server";
+import { db } from "../../../db";
+import { youtubeChannels } from "../../../db/schema";
+import { getCurrentUser } from "../../../lib/current-user";
+import { hasDatabaseEnv } from "../../../lib/env";
 import type { ChannelAccount } from "../../../types/analytics";
 
-type YouTubeChannelRecord = {
-  id: string;
-  title: string;
-  handle: string | null;
-  subscriber_count: number;
-  view_count: number;
-  video_count: number;
-  last_synced_at: string | null;
-  thumbnail_url: string | null;
-};
-
 export async function GET() {
-  const user = await getAuthenticatedUser();
-  const supabase = createSupabaseServiceClient();
+  const user = await getCurrentUser();
 
-  if (!supabase) return NextResponse.json({ channels: channelAccounts, source: "demo" });
+  if (!hasDatabaseEnv()) return NextResponse.json({ channels: channelAccounts, source: "demo" });
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
-    .from("youtube_channels")
-    .select("id,title,handle,subscriber_count,view_count,video_count,last_synced_at,thumbnail_url")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .returns<YouTubeChannelRecord[]>();
+  const data = await db
+    .select({
+      id: youtubeChannels.id,
+      title: youtubeChannels.title,
+      handle: youtubeChannels.handle,
+      subscriberCount: youtubeChannels.subscriberCount,
+      viewCount: youtubeChannels.viewCount,
+      videoCount: youtubeChannels.videoCount,
+      lastSyncedAt: youtubeChannels.lastSyncedAt,
+      thumbnailUrl: youtubeChannels.thumbnailUrl,
+    })
+    .from(youtubeChannels)
+    .where(eq(youtubeChannels.userId, user.id))
+    .orderBy(desc(youtubeChannels.createdAt));
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const channels: ChannelAccount[] = (data ?? []).map((channel) => ({
+  const channels: ChannelAccount[] = data.map((channel) => ({
     id: channel.id,
     platform: "youtube",
     name: channel.title,
     handle: channel.handle ?? "@youtube",
-    status: channel.last_synced_at ? "Synced" : "Needs sync",
-    cadence: channel.last_synced_at ? "Synced recently" : "Not synced yet",
-    posts: Number(channel.video_count ?? 0),
-    reach: formatCompactNumber(Number(channel.view_count ?? 0)),
-    thumbnailUrl: channel.thumbnail_url,
+    status: channel.lastSyncedAt ? "Synced" : "Needs sync",
+    cadence: channel.lastSyncedAt ? "Synced recently" : "Not synced yet",
+    posts: Number(channel.videoCount ?? 0),
+    reach: formatCompactNumber(Number(channel.viewCount ?? 0)),
+    thumbnailUrl: channel.thumbnailUrl,
   }));
 
   return NextResponse.json({ channels, source: channels.length ? "live" : "demo" });

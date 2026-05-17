@@ -7,7 +7,7 @@ export type OAuthStatePayload = {
 };
 
 function getStateSecret() {
-  return process.env.YOUTUBE_OAUTH_STATE_SECRET || process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  return process.env.YOUTUBE_OAUTH_STATE_SECRET || process.env.CRON_SECRET || process.env.BETTER_AUTH_SECRET || "";
 }
 
 function encode(value: string) {

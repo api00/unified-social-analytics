@@ -60,7 +60,7 @@ export default function GrowthAdvisor({ isAuthenticated }: { isAuthenticated: bo
         {
           id: crypto.randomUUID(),
           role: "agent",
-          text: "I could not reach the advisor endpoint. Check the Supabase/OpenAI env setup, then try again.",
+          text: "I could not reach the advisor endpoint. Check the database and OpenAI env setup, then try again.",
         },
       ]);
     }
