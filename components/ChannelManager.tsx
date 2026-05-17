@@ -48,15 +48,22 @@ export default function ChannelManager({ isAuthenticated, onChannelsChange }: Ch
   async function connectSelectedPlatform() {
     setStatusMessage("");
 
-    if (selectedPlatform !== "youtube") {
-      setStatusMessage(`${socialBrands[selectedPlatform].label} connection is planned after YouTube.`);
+    const connectEndpoint =
+      selectedPlatform === "youtube"
+        ? "/api/youtube/connect"
+        : selectedPlatform === "x"
+          ? "/api/x/connect"
+          : null;
+
+    if (!connectEndpoint) {
+      setStatusMessage(`${socialBrands[selectedPlatform].label} connection is planned next.`);
       return;
     }
 
-    const response = await fetch("/api/youtube/connect");
+    const response = await fetch(connectEndpoint);
     const payload = (await response.json()) as { url?: string; error?: string };
     if (!response.ok || !payload.url) {
-      setStatusMessage(payload.error ?? "YouTube connection is not configured yet.");
+      setStatusMessage(payload.error ?? `${socialBrands[selectedPlatform].label} connection is not configured yet.`);
       return;
     }
 
@@ -66,16 +73,20 @@ export default function ChannelManager({ isAuthenticated, onChannelsChange }: Ch
   async function syncNow() {
     setStatusMessage("");
     setIsSyncing(true);
-    const response = await fetch("/api/youtube/sync", { method: "POST" });
-    const payload = (await response.json().catch(() => ({}))) as { error?: string; synced?: number };
+    const [yt, x] = await Promise.all([
+      fetch("/api/youtube/sync", { method: "POST" }).then((r) => r.json().catch(() => ({}))) as Promise<{ synced?: number; error?: string }>,
+      fetch("/api/x/sync", { method: "POST" }).then((r) => r.json().catch(() => ({}))) as Promise<{ synced?: number; error?: string }>,
+    ]);
     setIsSyncing(false);
 
-    if (!response.ok) {
-      setStatusMessage(payload.error ?? "Sync failed.");
+    const ytCount = yt.synced ?? 0;
+    const xCount = x.synced ?? 0;
+    const total = ytCount + xCount;
+    if (!total && (yt.error || x.error)) {
+      setStatusMessage(yt.error ?? x.error ?? "Sync failed.");
       return;
     }
-
-    setStatusMessage(`Synced ${payload.synced ?? 0} YouTube channel${payload.synced === 1 ? "" : "s"}.`);
+    setStatusMessage(`Synced ${total} channel${total === 1 ? "" : "s"}.`);
   }
 
   const stats = buildChannelStats(channels);
