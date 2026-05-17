@@ -106,7 +106,7 @@ export async function syncYouTubeAccount(account: ConnectedAccountRow) {
 
     if (!channelRow) throw new Error("Could not upsert YouTube channel.");
 
-    const startDate = dateDaysAgo(6);
+    const startDate = dateDaysAgo(179);
     const endDate = dateDaysAgo(0);
 
     const dailyReport = await analytics.reports.query({

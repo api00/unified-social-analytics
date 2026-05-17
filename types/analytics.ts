@@ -2,6 +2,9 @@ export type SocialPlatformId = "youtube" | "tiktok" | "instagram";
 export type SocialBrandId = SocialPlatformId | "facebook" | "x";
 export type PlatformId = "all" | SocialPlatformId;
 export type DataSource = "empty" | "live";
+export type TimeRange = "24h" | "7d" | "30d" | "6m" | "all";
+
+export const TIME_RANGES: TimeRange[] = ["24h", "7d", "30d", "6m", "all"];
 
 export type PlatformOption = {
   id: PlatformId;

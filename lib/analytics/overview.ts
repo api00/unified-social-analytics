@@ -2,7 +2,7 @@ import { and, desc, eq, gte } from "drizzle-orm";
 import { buildEmptyOverview, formatCompactNumber, platformOptions } from "../../data/analytics";
 import { db } from "../../db";
 import { analyticsDaily, contentItems, youtubeChannels } from "../../db/schema";
-import type { OverviewData, TopContentItem, WeeklySeriesPoint } from "../../types/analytics";
+import type { OverviewData, TimeRange, TopContentItem, WeeklySeriesPoint } from "../../types/analytics";
 
 function dateDaysAgo(days: number) {
   const date = new Date();
@@ -12,6 +12,10 @@ function dateDaysAgo(days: number) {
 
 function dayLabel(dateString: string) {
   return new Intl.DateTimeFormat("en", { weekday: "short", timeZone: "UTC" }).format(new Date(dateString));
+}
+
+function shortDateLabel(dateString: string) {
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(dateString));
 }
 
 function percentChange(first: number, last: number) {
@@ -33,7 +37,30 @@ function formatDateRange(startIso: string, endIso: string) {
   return `${fmt(start, { month: "short", day: "numeric" })} – ${fmt(end, { month: "short", day: "numeric" })}`;
 }
 
-export async function getOverviewForUser(userId: string): Promise<OverviewData> {
+type RangeConfig = {
+  startDate: string | null;
+  rangeLabel: string;
+  useDayLabel: boolean;
+};
+
+function resolveRange(range: TimeRange): RangeConfig {
+  const today = dateDaysAgo(0);
+  switch (range) {
+    case "24h":
+      return { startDate: dateDaysAgo(1), rangeLabel: "Last 24 hours", useDayLabel: true };
+    case "30d":
+      return { startDate: dateDaysAgo(29), rangeLabel: formatDateRange(dateDaysAgo(29), today), useDayLabel: false };
+    case "6m":
+      return { startDate: dateDaysAgo(179), rangeLabel: "Last 6 months", useDayLabel: false };
+    case "all":
+      return { startDate: null, rangeLabel: "All time", useDayLabel: false };
+    case "7d":
+    default:
+      return { startDate: dateDaysAgo(6), rangeLabel: formatDateRange(dateDaysAgo(6), today), useDayLabel: true };
+  }
+}
+
+export async function getOverviewForUser(userId: string, range: TimeRange = "7d"): Promise<OverviewData> {
   const channels = await db
     .select({
       subscriberCount: youtubeChannels.subscriberCount,
@@ -45,7 +72,8 @@ export async function getOverviewForUser(userId: string): Promise<OverviewData> 
 
   if (!channels.length) return buildEmptyOverview();
 
-  const startDate = dateDaysAgo(6);
+  const { startDate, rangeLabel, useDayLabel } = resolveRange(range);
+
   const dailyRows = await db
     .select({
       date: analyticsDaily.date,
@@ -57,7 +85,11 @@ export async function getOverviewForUser(userId: string): Promise<OverviewData> 
       shares: analyticsDaily.shares,
     })
     .from(analyticsDaily)
-    .where(and(eq(analyticsDaily.userId, userId), gte(analyticsDaily.date, startDate)))
+    .where(
+      startDate
+        ? and(eq(analyticsDaily.userId, userId), gte(analyticsDaily.date, startDate))
+        : eq(analyticsDaily.userId, userId)
+    )
     .orderBy(analyticsDaily.date);
 
   const contentRows = await db
@@ -75,18 +107,23 @@ export async function getOverviewForUser(userId: string): Promise<OverviewData> 
     .orderBy(desc(contentItems.views))
     .limit(5);
 
-  const rows = dailyRows;
-  const totalViews = rows.reduce((sum, row) => sum + Number(row.views ?? 0), 0) || channels.reduce((sum, row) => sum + Number(row.viewCount ?? 0), 0);
+  const isLifetime = range === "all";
+  const lifetimeViews = channels.reduce((sum, row) => sum + Number(row.viewCount ?? 0), 0);
   const totalAudience = channels.reduce((sum, row) => sum + Number(row.subscriberCount ?? 0), 0);
   const totalPosts = channels.reduce((sum, row) => sum + Number(row.videoCount ?? 0), 0);
-  const totalEngagement = rows.reduce(
+
+  const periodViews = dailyRows.reduce((sum, row) => sum + Number(row.views ?? 0), 0);
+  const periodEngagement = dailyRows.reduce(
     (sum, row) => sum + Number(row.likes ?? 0) + Number(row.comments ?? 0) + Number(row.shares ?? 0),
     0
   );
-  const engagementRate = totalViews ? `${((totalEngagement / totalViews) * 100).toFixed(1)}%` : "0%";
 
-  const weeklySeries: WeeklySeriesPoint[] = rows.map((row) => ({
-    day: dayLabel(row.date),
+  const totalViews = isLifetime ? lifetimeViews : periodViews;
+  const engagementBase = isLifetime ? lifetimeViews : periodViews;
+  const engagementRate = engagementBase ? `${((periodEngagement / engagementBase) * 100).toFixed(1)}%` : "0%";
+
+  const weeklySeries: WeeklySeriesPoint[] = dailyRows.map((row) => ({
+    day: useDayLabel ? dayLabel(row.date) : shortDateLabel(row.date),
     youtube: Number(row.views ?? 0),
     tiktok: 0,
     instagram: 0,
@@ -111,10 +148,11 @@ export async function getOverviewForUser(userId: string): Promise<OverviewData> 
 
   const firstViews = weeklySeries[0]?.youtube ?? 0;
   const lastViews = weeklySeries[weeklySeries.length - 1]?.youtube ?? 0;
+  const growthLabel = isLifetime ? "Lifetime" : percentChange(firstViews, lastViews);
 
   return {
     source: "live",
-    dateRange: formatDateRange(startDate, dateDaysAgo(0)),
+    dateRange: rangeLabel,
     platformOptions,
     weeklySeries,
     audienceMix: [{ name: "youtube", value: totalAudience }],
@@ -127,7 +165,7 @@ export async function getOverviewForUser(userId: string): Promise<OverviewData> 
         audience: totalAudience,
         engagement: engagementRate,
         posts: totalPosts,
-        growth: percentChange(firstViews, lastViews),
+        growth: growthLabel,
         conversion: "Live",
       },
       youtube: {
@@ -136,7 +174,7 @@ export async function getOverviewForUser(userId: string): Promise<OverviewData> 
         audience: totalAudience,
         engagement: engagementRate,
         posts: totalPosts,
-        growth: percentChange(firstViews, lastViews),
+        growth: growthLabel,
         conversion: "Live",
       },
       tiktok: {

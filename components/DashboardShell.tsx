@@ -22,7 +22,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { buildEmptyOverview } from "../data/analytics";
-import type { NetworkMetric, OverviewData, PlatformId, PlatformOption, TopContentItem } from "../types/analytics";
+import type { NetworkMetric, OverviewData, PlatformId, PlatformOption, TimeRange, TopContentItem } from "../types/analytics";
 import AuthModal from "./AuthModal";
 import BrandLogo from "./BrandLogo";
 import ChannelManager from "./ChannelManager";
@@ -86,12 +86,21 @@ const sectionCopy: Record<AppSection, { title: string; description: string }> = 
   },
 };
 
+const rangeOptions: { id: TimeRange; label: string }[] = [
+  { id: "24h", label: "Last 24 hours" },
+  { id: "7d", label: "Last 7 days" },
+  { id: "30d", label: "Last 30 days" },
+  { id: "6m", label: "Last 6 months" },
+  { id: "all", label: "All time" },
+];
+
 export default function DashboardShell({ initialUser, authConfigured, initialChannelCount }: DashboardShellProps) {
   const router = useRouter();
   const [activePlatform, setActivePlatform] = useState<PlatformId>("all");
   const [activeSection, setActiveSection] = useState<AppSection>("overview");
   const [overviewData, setOverviewData] = useState<OverviewData>(buildEmptyOverview);
   const [channelCount, setChannelCount] = useState<number>(initialChannelCount);
+  const [activeRange, setActiveRange] = useState<TimeRange>("7d");
 
   const currentCopy = sectionCopy[activeSection] ?? sectionCopy.overview;
   const activeMetrics = overviewData.networkMetrics[activePlatform] ?? overviewData.networkMetrics.all;
@@ -104,7 +113,7 @@ export default function DashboardShell({ initialUser, authConfigured, initialCha
     if (!initialUser) return;
 
     async function loadOverview() {
-      const response = await fetch("/api/analytics/overview");
+      const response = await fetch(`/api/analytics/overview?range=${activeRange}`);
       if (!response.ok) return;
       const payload = (await response.json()) as OverviewData;
       setOverviewData(payload);
@@ -112,7 +121,7 @@ export default function DashboardShell({ initialUser, authConfigured, initialCha
     }
 
     void loadOverview();
-  }, [initialUser]);
+  }, [initialUser, activeRange]);
 
   async function handleLogout() {
     await authClient.signOut();
@@ -206,10 +215,19 @@ export default function DashboardShell({ initialUser, authConfigured, initialCha
               <button className="icon-button" aria-label="Notifications">
                 <Bell size={17} />
               </button>
-              <button className="secondary-button">
-                <CalendarDays size={16} />
-                Last 7 days
-              </button>
+              <label className="range-select-wrap">
+                <CalendarDays size={16} aria-hidden="true" />
+                <span className="sr-only">Date range</span>
+                <select
+                  className="range-select"
+                  value={activeRange}
+                  onChange={(event) => setActiveRange(event.target.value as TimeRange)}
+                >
+                  {rangeOptions.map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
               <button className="primary-button">
                 <Download size={16} />
                 Export
