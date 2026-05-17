@@ -3,6 +3,7 @@ import type { OverviewData, PlatformOption } from "../types/analytics";
 export const platformOptions: PlatformOption[] = [
   { id: "all", label: "All networks", short: "All" },
   { id: "youtube", label: "YouTube", short: "YT" },
+  { id: "x", label: "X", short: "X" },
   { id: "tiktok", label: "TikTok", short: "TT" },
   { id: "instagram", label: "Instagram", short: "IG" },
 ];
@@ -38,6 +39,7 @@ export function buildEmptyOverview(): OverviewData {
     networkMetrics: {
       all: emptyMetric("All networks"),
       youtube: emptyMetric("YouTube"),
+      x: emptyMetric("X"),
       tiktok: emptyMetric("TikTok"),
       instagram: emptyMetric("Instagram"),
     },

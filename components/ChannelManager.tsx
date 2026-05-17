@@ -210,7 +210,7 @@ export default function ChannelManager({ isAuthenticated, onChannelsChange }: Ch
                   >
                     <SocialLogo platform={platform} size={18} />
                     <strong>{socialBrands[platform].label}</strong>
-                    <small>{platform === "youtube" ? "Import channel, videos, and analytics" : "Coming after YouTube v1"}</small>
+                    <small>{platform === "youtube" ? "Import channel, videos, and analytics" : platform === "x" ? "Import profile and recent posts" : "Coming next"}</small>
                   </button>
                 ))}
               </div>

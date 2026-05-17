@@ -387,15 +387,16 @@ function PlatformTab({
 
   return (
     <button
+      aria-label={platform.label}
       aria-selected={isActive}
       className={isActive ? "platform-tab is-active" : "platform-tab"}
       onClick={onClick}
       role="tab"
       style={{ "--platform-color": platformColor } as CSSProperties}
+      title={platform.label}
       type="button"
     >
       {platform.id === "all" ? <SocialLogoGroup /> : <SocialLogo platform={platform.id} />}
-      {platform.label}
     </button>
   );
 }

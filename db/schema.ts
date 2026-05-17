@@ -113,6 +113,36 @@ export const youtubeChannels = pgTable(
   ]
 );
 
+export const xAccounts = pgTable(
+  "x_accounts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    connectedAccountId: uuid("connected_account_id")
+      .notNull()
+      .references(() => connectedAccounts.id, { onDelete: "cascade" }),
+    xUserId: text("x_user_id").notNull(),
+    username: text("username").notNull(),
+    name: text("name").notNull(),
+    profileImageUrl: text("profile_image_url"),
+    description: text("description"),
+    followersCount: bigint("followers_count", { mode: "number" }).notNull().default(0),
+    followingCount: bigint("following_count", { mode: "number" }).notNull().default(0),
+    tweetCount: bigint("tweet_count", { mode: "number" }).notNull().default(0),
+    listedCount: bigint("listed_count", { mode: "number" }).notNull().default(0),
+    verified: boolean("verified").notNull().default(false),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("x_accounts_user_x_idx").on(table.userId, table.xUserId),
+    index("x_accounts_user_idx").on(table.userId),
+  ]
+);
+
 export const analyticsDaily = pgTable(
   "analytics_daily",
   {
@@ -121,6 +151,7 @@ export const analyticsDaily = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     channelId: uuid("channel_id").references(() => youtubeChannels.id, { onDelete: "cascade" }),
+    xAccountId: uuid("x_account_id").references(() => xAccounts.id, { onDelete: "cascade" }),
     platform: text("platform").notNull().default("youtube"),
     date: date("date").notNull(),
     views: bigint("views", { mode: "number" }).notNull().default(0),
@@ -148,6 +179,7 @@ export const contentItems = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     channelId: uuid("channel_id").references(() => youtubeChannels.id, { onDelete: "cascade" }),
+    xAccountId: uuid("x_account_id").references(() => xAccounts.id, { onDelete: "cascade" }),
     platform: text("platform").notNull().default("youtube"),
     externalId: text("external_id").notNull(),
     title: text("title").notNull(),
@@ -216,7 +248,16 @@ export const usersRelations = relations(user, ({ many }) => ({
   accounts: many(account),
   connectedAccounts: many(connectedAccounts),
   youtubeChannels: many(youtubeChannels),
+  xAccounts: many(xAccounts),
   chatThreads: many(chatThreads),
+}));
+
+export const xAccountRelations = relations(xAccounts, ({ one }) => ({
+  user: one(user, { fields: [xAccounts.userId], references: [user.id] }),
+  connectedAccount: one(connectedAccounts, {
+    fields: [xAccounts.connectedAccountId],
+    references: [connectedAccounts.id],
+  }),
 }));
 
 export const youtubeChannelRelations = relations(youtubeChannels, ({ one }) => ({
@@ -230,6 +271,7 @@ export const youtubeChannelRelations = relations(youtubeChannels, ({ one }) => (
 export type User = typeof user.$inferSelect;
 export type ConnectedAccount = typeof connectedAccounts.$inferSelect;
 export type YouTubeChannel = typeof youtubeChannels.$inferSelect;
+export type XAccount = typeof xAccounts.$inferSelect;
 export type AnalyticsDaily = typeof analyticsDaily.$inferSelect;
 export type ContentItem = typeof contentItems.$inferSelect;
 export type ChatThreadRecord = typeof chatThreads.$inferSelect;

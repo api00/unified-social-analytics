@@ -19,11 +19,12 @@ const axisStyle = { fill: "#647085", fontSize: 11, fontFamily: "var(--font-instr
 const gridColor = "#e6e9ee";
 const accentColor = "#315be8";
 
-const metricKeyByPlatform: Record<PlatformId, "total" | "youtube" | "tiktok" | "instagram"> = {
+const metricKeyByPlatform: Record<PlatformId, "total" | "youtube" | "tiktok" | "instagram" | "x"> = {
   all: "total",
   youtube: "youtube",
   tiktok: "tiktok",
   instagram: "instagram",
+  x: "x",
 };
 
 const seriesLabels: Record<string, string> = {
@@ -31,10 +32,11 @@ const seriesLabels: Record<string, string> = {
   youtube: "YouTube",
   tiktok: "TikTok",
   instagram: "Instagram",
+  x: "X",
   views: "Views",
 };
 
-const socialPlatformIds = new Set(["youtube", "tiktok", "instagram"]);
+const socialPlatformIds = new Set(["youtube", "tiktok", "instagram", "x"]);
 
 export default function GrowthCharts({
   activePlatform,
@@ -99,6 +101,7 @@ export default function GrowthCharts({
               {showAllSeries ? (
                 <>
                   <Line dataKey="youtube" dot={false} isAnimationActive={false} stroke={getPlatformColor("youtube")} strokeWidth={1.7} type="monotone" />
+                  <Line dataKey="x" dot={false} isAnimationActive={false} stroke={getPlatformColor("x")} strokeWidth={1.7} type="monotone" />
                   <Line dataKey="tiktok" dot={false} isAnimationActive={false} stroke={getPlatformColor("tiktok")} strokeWidth={1.7} type="monotone" />
                   <Line dataKey="instagram" dot={false} isAnimationActive={false} stroke={getPlatformColor("instagram")} strokeWidth={1.7} type="monotone" />
                 </>

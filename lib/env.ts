@@ -38,3 +38,11 @@ export function hasGoogleYouTubeEnv() {
 export function hasOpenAIEnv() {
   return Boolean(process.env.OPENAI_API_KEY);
 }
+
+export function hasXEnv() {
+  return Boolean(
+    process.env.X_CLIENT_ID &&
+      process.env.X_CLIENT_SECRET &&
+      (process.env.X_OAUTH_REDIRECT_URL || process.env.NEXT_PUBLIC_SITE_URL)
+  );
+}

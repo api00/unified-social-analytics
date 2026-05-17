@@ -4,6 +4,7 @@ export type OAuthStatePayload = {
   userId: string;
   nonce: string;
   issuedAt: number;
+  codeVerifier?: string;
 };
 
 function getStateSecret() {

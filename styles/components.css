@@ -91,17 +91,49 @@
 }
 
 .platform-tab {
-  gap: var(--space-2);
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  min-height: 2.1rem;
-  padding: 0 var(--space-3);
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-muted);
-  font-size: 0.78rem;
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--motion-fast), background var(--motion-fast), transform var(--motion-fast);
+}
+
+.platform-tab:hover {
+  transform: translateY(-1px);
+}
+
+.platform-tab .social-logo {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+.platform-tab .social-logo-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+
+.platform-tab .social-logo-group .social-logo {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-left: -0.32rem;
+  box-shadow: 0 0 0 1.5px var(--color-surface);
+  border-radius: 6px;
+}
+
+.platform-tab .social-logo-group .social-logo:first-child {
+  margin-left: 0;
+}
+
+.platform-tab.is-active .social-logo-group .social-logo {
+  box-shadow: 0 0 0 1.5px var(--platform-color);
 }
 
 .platform-tab.is-active {
@@ -128,6 +160,11 @@
 
 .platform-tab.is-active .social-logo--instagram {
   background: radial-gradient(circle at 30% 110%, #ffdc80 0 24%, #f77737 35%, #fd1d1d 48%, #c13584 68%, #833ab4 100%);
+  color: white;
+}
+
+.platform-tab.is-active .social-logo--x {
+  background: #0f172a;
   color: white;
 }
 

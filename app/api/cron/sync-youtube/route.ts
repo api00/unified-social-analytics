@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "../../../../db";
 import { connectedAccounts } from "../../../../db/schema";
 import { syncYouTubeAccount, type ConnectedAccountRow } from "../../../../lib/youtube/sync";
+import { syncXAccount } from "../../../../lib/x/sync";
 
 export async function GET(request: NextRequest) {
   const expectedSecret = process.env.CRON_SECRET;
@@ -25,9 +26,28 @@ export async function GET(request: NextRequest) {
       expiresAt: connectedAccounts.expiresAt,
     })
     .from(connectedAccounts)
-    .where(eq(connectedAccounts.provider, "youtube"));
+    .where(inArray(connectedAccounts.provider, ["youtube", "x"]));
 
-  const results = await Promise.all(accounts.map((account) => syncYouTubeAccount(account as ConnectedAccountRow)));
+  const results = await Promise.all(
+    accounts.map((account) => {
+      if (account.provider === "youtube") {
+        return syncYouTubeAccount(account as ConnectedAccountRow);
+      }
+      if (account.provider === "x") {
+        return syncXAccount({
+          id: account.id,
+          userId: account.userId,
+          provider: "x",
+          providerAccountId: account.providerAccountId,
+          accessToken: account.accessToken,
+          refreshToken: account.refreshToken,
+          expiresAt: account.expiresAt,
+        });
+      }
+      return Promise.resolve({ ok: false as const, error: `Unsupported provider: ${account.provider}` });
+    })
+  );
+
   return NextResponse.json({
     attempted: results.length,
     synced: results.filter((result) => result.ok).length,

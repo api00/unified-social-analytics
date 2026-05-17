@@ -1,5 +1,5 @@
-export type SocialPlatformId = "youtube" | "tiktok" | "instagram";
-export type SocialBrandId = SocialPlatformId | "facebook" | "x";
+export type SocialPlatformId = "youtube" | "tiktok" | "instagram" | "x";
+export type SocialBrandId = SocialPlatformId | "facebook";
 export type PlatformId = "all" | SocialPlatformId;
 export type DataSource = "empty" | "live";
 export type TimeRange = "24h" | "7d" | "30d" | "6m" | "all";
@@ -27,6 +27,7 @@ export type WeeklySeriesPoint = {
   youtube: number;
   tiktok: number;
   instagram: number;
+  x: number;
   total: number;
 };
 

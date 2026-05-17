@@ -22,21 +22,21 @@ export const socialBrands: Record<SocialBrandId, { chartColor: string; label: st
     softColor: "#eef5ff",
   },
   x: {
-    chartColor: "#111111",
+    chartColor: "#0f172a",
     label: "X",
     softColor: "#f1f5f9",
   },
 };
 
-export const socialBrandList: SocialPlatformId[] = ["youtube", "tiktok", "instagram"];
-export const marketingSocialBrandList: SocialBrandId[] = ["youtube", "tiktok", "instagram", "facebook", "x"];
+export const socialBrandList: SocialPlatformId[] = ["youtube", "x", "tiktok", "instagram"];
+export const marketingSocialBrandList: SocialBrandId[] = ["youtube", "x", "tiktok", "instagram", "facebook"];
 
 export function getPlatformId(platform: unknown) {
   return String(platform).toLowerCase();
 }
 
 export function isSocialPlatformId(platform: unknown): platform is SocialPlatformId {
-  return platform === "youtube" || platform === "tiktok" || platform === "instagram";
+  return platform === "youtube" || platform === "tiktok" || platform === "instagram" || platform === "x";
 }
 
 export function isSocialBrandId(platform: unknown): platform is SocialBrandId {
