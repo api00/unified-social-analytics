@@ -122,7 +122,7 @@ export async function getOverviewForUser(userId: string, range: TimeRange = "7d"
     .from(contentItems)
     .where(eq(contentItems.userId, userId))
     .orderBy(desc(contentItems.views))
-    .limit(8);
+    .limit(15);
 
   const isLifetime = range === "all";
 
@@ -178,7 +178,7 @@ export async function getOverviewForUser(userId: string, range: TimeRange = "7d"
       total: values.youtube + values.x + values.tiktok + values.instagram,
     }));
 
-  const topContent: TopContentItem[] = contentRows.slice(0, 5).map((item) => ({
+  const topContent: TopContentItem[] = contentRows.slice(0, 10).map((item) => ({
     id: item.id,
     title: item.title,
     platform: item.platform,
@@ -267,18 +267,68 @@ export async function getOverviewForUser(userId: string, range: TimeRange = "7d"
   };
 }
 
-export function summarizeOverviewForPrompt(overview: OverviewData) {
-  const topPosts = overview.topContent
-    .slice(0, 5)
-    .map((item, index) => `${index + 1}. ${item.title} (${item.platform}, ${formatCompactNumber(item.views)} views)`)
-    .join("\n");
+export function summarizeOverviewForPrompt(overview: OverviewData): string {
+  const sections: string[] = [];
 
-  return [
-    `Data source: ${overview.source}`,
-    `Range: ${overview.dateRange}`,
-    `Views: ${formatCompactNumber(overview.networkMetrics.all.views)}`,
-    `Audience: ${formatCompactNumber(overview.networkMetrics.all.audience)}`,
-    `Engagement: ${overview.networkMetrics.all.engagement}`,
-    `Top posts:\n${topPosts || "No synced posts yet."}`,
-  ].join("\n");
+  sections.push(`Reporting window: ${overview.dateRange || "Last available data"}`);
+
+  const platformLines: string[] = [];
+  for (const platformId of ["youtube", "x", "tiktok", "instagram"] as const) {
+    const metric = overview.networkMetrics[platformId];
+    if (!metric) continue;
+    if (!metric.views && !metric.audience && !metric.posts) continue;
+    const audienceLabel = platformId === "youtube" ? "subscribers" : "followers";
+    platformLines.push(
+      `${metric.label}: ${formatCompactNumber(metric.views)} views · ${formatCompactNumber(metric.audience)} ${audienceLabel} · ${formatCompactNumber(metric.posts)} posts · ${metric.engagement} engagement · growth ${metric.growth}`
+    );
+  }
+  if (platformLines.length) {
+    sections.push(`=== CONNECTED PLATFORMS ===\n${platformLines.join("\n")}`);
+  }
+
+  if (overview.weeklySeries.length) {
+    const recent = overview.weeklySeries.slice(-30);
+    const header = "Day        YT      X       Total";
+    const rows = recent.map((point) => {
+      const day = String(point.day).padEnd(10);
+      const yt = String(point.youtube).padStart(7);
+      const x = String(point.x).padStart(7);
+      const total = String(point.total).padStart(7);
+      return `${day} ${yt} ${x} ${total}`;
+    });
+    const bestDay = overview.weeklySeries.reduce(
+      (best, p) => (p.total > best.total ? p : best),
+      overview.weeklySeries[0]
+    );
+    const peakLine = bestDay
+      ? `Peak day in series: ${bestDay.day} with ${formatCompactNumber(bestDay.total)} total views`
+      : "";
+    sections.push(`=== DAILY VIEWS (last ${recent.length} data points) ===\n${header}\n${rows.join("\n")}\n${peakLine}`);
+  }
+
+  if (overview.topContent.length) {
+    const postLines = overview.topContent.map((item, index) => {
+      const title = item.title.replace(/\s+/g, " ").slice(0, 120);
+      return `${index + 1}. [${item.platform}/${item.type}] "${title}" — ${formatCompactNumber(item.views)} views · ${item.engagement ?? "—"} engagement`;
+    });
+    sections.push(`=== TOP POSTS (ranked by views) ===\n${postLines.join("\n")}`);
+  }
+
+  if (overview.contentByFormat.length) {
+    const formatLines = [...overview.contentByFormat]
+      .sort((a, b) => b.views - a.views)
+      .map((item) => `${item.platform ?? "unknown"} / ${item.name}: ${formatCompactNumber(item.views)} views`);
+    sections.push(`=== FORMAT PERFORMANCE ===\n${formatLines.join("\n")}`);
+  }
+
+  if (overview.audienceMix.length) {
+    const total = overview.audienceMix.reduce((sum, item) => sum + item.value, 0);
+    const audienceLines = overview.audienceMix.map((item) => {
+      const pct = total ? Math.round((item.value / total) * 100) : 0;
+      return `${item.name}: ${formatCompactNumber(item.value)} (${pct}%)`;
+    });
+    sections.push(`=== AUDIENCE COMPOSITION (total ${formatCompactNumber(total)}) ===\n${audienceLines.join("\n")}`);
+  }
+
+  return sections.join("\n\n");
 }

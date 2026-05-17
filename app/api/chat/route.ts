@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     content: message,
   });
 
-  const overview = await getOverviewForUser(user.id);
+  const overview = await getOverviewForUser(user.id, "6m");
   const analyticsContext = summarizeOverviewForPrompt(overview);
 
   let answer = fallbackAdvice(message);
@@ -65,9 +65,19 @@ export async function POST(request: NextRequest) {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await client.responses.create({
       model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
-      instructions:
-        "You are a concise professional social media growth strategist. Use the analytics context. Give specific next actions, avoid generic advice, and keep the answer under 140 words.",
-      input: `Analytics context:\n${analyticsContext}\n\nUser question:\n${message}`,
+      instructions: [
+        "You are a senior cross-platform social media growth strategist analyzing a creator's analytics data.",
+        "",
+        "Style rules:",
+        "- ALWAYS reference specific numbers, post titles, dates, or formats from the data — never give generic advice.",
+        "- Compare formats and platforms to surface what is actually working (highest views per post, best engagement rate, fastest-growing).",
+        "- Recommend 2–3 concrete next actions, ranked by expected impact, each tied back to a data point.",
+        "- Acknowledge sparse data honestly: if a platform has < 10 data points, recommend tests rather than conclusions.",
+        "- Treat lifetime stats as background context. Prefer trends in the last 30 days when giving short-term advice.",
+        "",
+        "Format: 120–200 words, plain prose. No markdown headers. Numbered list is OK if it improves clarity.",
+      ].join("\n"),
+      input: `User question:\n${message}\n\n--- ANALYTICS CONTEXT (last 6 months) ---\n${analyticsContext}`,
     });
     answer = response.output_text || answer;
   }
